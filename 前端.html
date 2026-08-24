@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>少模光纤单光斑仿真器</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #050b12; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
+    iframe { width: 100%; height: 100%; border: 0; background: #050b12; opacity: 0; transition: opacity .25s; }
+    iframe.ready { opacity: 1; }
+    .launcher { position: fixed; inset: 0; z-index: 2; display: grid; place-items: center; padding: 24px; color: #eaf2fb; background: radial-gradient(circle at 50% 20%, #17324e, #07111d 54%, #03080d); }
+    .card { width: min(520px, 100%); padding: 32px; text-align: center; border: 1px solid rgba(126,157,188,.22); border-radius: 18px; background: rgba(10,22,36,.9); box-shadow: 0 28px 80px rgba(0,0,0,.35); }
+    .orb { width: 54px; height: 54px; margin: 0 auto 18px; border: 1px solid #28d8dc; border-radius: 50%; box-shadow: 0 0 28px rgba(40,216,220,.18), inset 0 0 20px rgba(40,216,220,.12); position: relative; }
+    .orb::before, .orb::after { content: ""; position: absolute; inset: 11px; border: 1px solid rgba(40,216,220,.4); border-radius: 50%; }
+    .orb::after { inset: 22px; background: #28d8dc; box-shadow: 0 0 9px #28d8dc; }
+    h1 { margin: 0; font-size: 21px; }
+    p { color: #8192a8; font-size: 12px; line-height: 1.8; }
+    code { color: #8df1f1; }
+    .loader { width: 100%; height: 3px; margin: 22px 0 16px; overflow: hidden; border-radius: 9px; background: #14263a; }
+    .loader span { display: block; width: 38%; height: 100%; border-radius: inherit; background: #28d8dc; box-shadow: 0 0 10px #28d8dc; animation: move 1.2s infinite ease-in-out; }
+    .error { display: none; margin-top: 14px; padding: 12px; border: 1px solid rgba(246,176,74,.25); border-radius: 9px; color: #ffd08c; background: rgba(246,176,74,.07); }
+    button { min-height: 38px; padding: 0 18px; border: 1px solid #28d8dc; border-radius: 8px; color: #061113; background: #28d8dc; font-weight: 700; cursor: pointer; }
+    @keyframes move { 0% { transform: translateX(-100%); } 100% { transform: translateX(330%); } }
+  </style>
+</head>
+<body>
+  <div class="launcher" id="launcher">
+    <div class="card">
+      <div class="orb"></div>
+      <h1>正在连接仿真后端</h1>
+      <p>请先运行 <code>后端.mjs</code> 或双击 <code>启动后端.bat</code><br>首次安装依赖可能需要 1–3 分钟，本页面会持续自动连接。</p>
+      <div class="loader"><span></span></div>
+      <p id="status">连接 http://localhost:3000 …</p>
+      <div class="error" id="error">后端尚未就绪，可能仍在安装依赖。请保持后端窗口打开，本页面会自动重试。<br><br><button id="retry">立即重试</button></div>
+    </div>
+  </div>
+  <iframe id="app" title="少模光纤单光斑仿真器" src="about:blank"></iframe>
+  <script>
+    const app = document.getElementById("app");
+    const launcher = document.getElementById("launcher");
+    const status = document.getElementById("status");
+    const error = document.getElementById("error");
+    let attempts = 0;
+    let timeoutId;
+    let connected = false;
+    function connect() {
+      if (connected) return;
+      attempts += 1;
+      status.textContent = "正在连接后端，第 " + attempts + " 次…";
+      app.src = "http://localhost:3000/?launcher=" + Date.now();
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        if (connected) return;
+        status.textContent = "后端准备中，已等待约 " + (attempts * 3) + " 秒…";
+        error.style.display = "block";
+        setTimeout(connect, 1200);
+      }, 3000);
+    }
+    window.addEventListener("message", (event) => {
+      if (event.origin === "http://localhost:3000" && event.data?.type === "lp-simulator-ready") {
+        connected = true;
+        clearTimeout(timeoutId);
+        app.classList.add("ready");
+        launcher.style.display = "none";
+      }
+    });
+    document.getElementById("retry").addEventListener("click", () => connect());
+    connect();
+  </script>
+</body>
+</html>
