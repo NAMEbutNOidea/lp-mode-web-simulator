@@ -15,7 +15,8 @@ export default function SettingsDialog({ open, settings, onChange, onReset, onCl
     <section className="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
       <header className="settings-header"><div><p className="section-kicker">SIMULATION SETTINGS</p><h2 id="settings-title">仿真与显示设置</h2><p>集中控制自适应裁剪、显示映射和计算分辨率。</p></div><button className="close-button" aria-label="关闭设置" onClick={onClose}>×</button></header>
       <div className="settings-section">
-        <div className="settings-section-title"><span>01</span><div><strong>自适应能量裁剪</strong><small>对应 MATLAB crop_nearfield_adaptive</small></div><button className={`switch-control ${settings.autoCrop ? "on" : ""}`} role="switch" aria-checked={settings.autoCrop} onClick={() => onChange({ autoCrop: !settings.autoCrop })}><span/></button></div>
+        <div className="settings-section-title"><span>01</span><div><strong>{settings.cropMode === "fixed" ? "自定义组合固定裁剪" : "自适应能量裁剪"}</strong><small>{settings.cropMode === "fixed" ? "来自50组光斑的统一校准比例" : "对应 MATLAB crop_nearfield_adaptive"}</small></div><button className={`switch-control ${settings.autoCrop ? "on" : ""}`} role="switch" aria-checked={settings.autoCrop} onClick={() => onChange({ autoCrop: !settings.autoCrop })}><span/></button></div>
+        {settings.cropMode === "fixed" && settings.autoCrop && <div className="fixed-crop-note"><span>近场半宽比例 <strong>{settings.nearfieldCropRatio?.toFixed(6)}</strong></span><span>远场半宽比例 <strong>{settings.farfieldCropRatio?.toFixed(6)}</strong></span><button type="button" onClick={() => onChange({ cropMode: "adaptive", nearfieldCropRatio: null, farfieldCropRatio: null })}>改用逐图自适应</button></div>}
         <SettingRange label="能量覆盖率" hint="以光强质心为中心，寻找覆盖目标能量的半径" value={Number((settings.energyFraction * 100).toFixed(1))} min={50} max={99.9} step={0.5} suffix="%" disabled={!settings.autoCrop} onChange={(value) => onChange({ energyFraction: value / 100 })}/>
         <SettingRange label="裁剪留白系数" hint="在能量半径外保留额外边缘，MATLAB 默认 1.12" value={settings.paddingFactor} min={1} max={2} step={0.01} suffix="×" disabled={!settings.autoCrop} onChange={(value) => onChange({ paddingFactor: value })}/>
       </div>
@@ -24,6 +25,7 @@ export default function SettingsDialog({ open, settings, onChange, onReset, onCl
         <SettingRange label="Gamma" hint="小于 1 时增强较弱的光斑结构" value={settings.gamma} min={0.1} max={2} step={0.05} suffix="" onChange={(value) => onChange({ gamma: value })}/>
         <div className="select-grid">
           <label><span>内部计算网格</span><small>600 × 600 与参考 MATLAB 脚本一致</small><select value={settings.gridSize} onChange={(event) => onChange({ gridSize: Number(event.target.value) })}><option value="224">224 × 224（快速）</option><option value="320">320 × 320（平衡）</option><option value="600">600 × 600（MATLAB 一致）</option></select></label>
+          <label><span>FFT 零填充比例</span><small>远场校准与参考脚本默认使用 4×</small><select value={settings.fftRatio} onChange={(event) => onChange({ fftRatio: Number(event.target.value) })}><option value="1">1×（快速）</option><option value="2">2×</option><option value="4">4×（MATLAB 一致）</option></select></label>
           <label><span>输出图像尺寸</span><small>裁剪后重采样尺寸</small><select value={settings.outputSize} onChange={(event) => onChange({ outputSize: Number(event.target.value) })}><option value="128">128 × 128</option><option value="224">224 × 224</option><option value="256">256 × 256</option><option value="320">320 × 320</option></select></label>
         </div>
       </div>

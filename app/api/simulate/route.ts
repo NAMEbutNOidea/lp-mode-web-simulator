@@ -15,10 +15,14 @@ export async function POST(request: Request) {
     }
     const safeDisplay: DisplaySettings = {
       autoCrop: display?.autoCrop ?? true,
+      cropMode: display?.cropMode === "fixed" ? "fixed" : "adaptive",
+      nearfieldCropRatio: Number.isFinite(display?.nearfieldCropRatio) ? Math.max(0.001, Math.min(0.5, Number(display.nearfieldCropRatio))) : null,
+      farfieldCropRatio: Number.isFinite(display?.farfieldCropRatio) ? Math.max(0.001, Math.min(0.5, Number(display.farfieldCropRatio))) : null,
       energyFraction: Math.max(0.5, Math.min(0.999, display?.energyFraction ?? 0.95)),
       paddingFactor: Math.max(1, Math.min(2, display?.paddingFactor ?? 1.12)),
       gamma: Math.max(0.1, Math.min(2, display?.gamma ?? 0.7)),
       gridSize: Math.max(128, Math.min(600, Math.round(display?.gridSize ?? 600))),
+      fftRatio: Math.max(1, Math.min(4, Math.round(display?.fftRatio ?? 4))),
       outputSize: Math.max(64, Math.min(320, Math.round(display?.outputSize ?? 224))),
     };
     const result = synthesizeSpot(fiber, modes, safeDisplay);

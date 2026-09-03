@@ -2,8 +2,8 @@ import type { CropInfo, DisplaySettings, FiberParams, LPMode, ModeSetting } from
 
 async function parseResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const payload = await response.json().catch(() => ({ error: "服务器计算失败" }));
-    throw new Error(payload.error || "服务器计算失败");
+    const payload = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(payload?.error || "服务器计算失败");
   }
   return response.json() as Promise<T>;
 }

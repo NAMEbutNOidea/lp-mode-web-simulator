@@ -5,7 +5,7 @@ import { NumericField, StepBadge } from "./SharedControls";
 
 export default function FiberPanel({ fiber, vNumber, detected, supportedCount, familyCount, busy, onChange, onDetect }: { fiber: FiberParams; vNumber: number; detected: boolean; supportedCount: number; familyCount: number; busy: boolean; onChange: <K extends keyof FiberParams>(key: K, value: FiberParams[K]) => void; onDetect: () => void }) {
   return <section className="panel parameter-panel">
-    <div className="panel-heading"><div><p className="section-kicker">STEP 01</p><h2><StepBadge number={1} done={detected}/>设置光纤参数</h2></div><span className="v-chip">V = {vNumber.toFixed(4)}</span></div>
+    <div className="panel-heading"><div><p className="section-kicker">STEP 01</p><h2><StepBadge number={1} done={detected}/>光纤参数与组合</h2></div><span className="v-chip">V = {vNumber.toFixed(4)}</span></div>
     <p className="panel-copy">采用与 MATLAB 脚本一致的弱导标量 LP 模式模型。</p>
     <div className="field-grid">
       <NumericField label="纤芯半径 a" value={fiber.coreRadius} unit="μm" min={1} max={50} step={0.1} onChange={(v) => onChange("coreRadius", v)}/>

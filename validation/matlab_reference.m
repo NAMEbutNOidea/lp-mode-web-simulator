@@ -2,9 +2,17 @@
 clear; clc;
 
 projectDir = string(fileparts(fileparts(mfilename('fullpath'))));
-funcDir = "D:\A-exm\vscode_code\py\模式分析\真实光斑\" + ...
-    "ModeSynthesisCGH - 副本\ModeSynthesisCGH - 副本\functions";
-addpath(funcDir);
+% Optional reference functions are supplied separately by the user.
+funcDir = string(getenv("LP_MATLAB_REFERENCE_DIR"));
+if strlength(funcDir) > 0
+    addpath(funcDir);
+end
+requiredFunctions = ["compute_lpmodes", "synthesize_mode_field", ...
+    "crop_nearfield_adaptive", "normalize_image"];
+for functionName = requiredFunctions
+    assert(exist(char(functionName), "file") == 2, ...
+        "Missing reference function: %s. Set LP_MATLAB_REFERENCE_DIR or add the functions to the MATLAB path.", functionName);
+end
 
 cfg.fiber.coreRadius = 10.0e-6;
 cfg.fiber.NA = 0.179;

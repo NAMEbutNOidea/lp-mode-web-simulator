@@ -12,10 +12,16 @@
 6. 后端相干叠加模式，同步返回近场与远场 224 × 224 强度图。
 7. 分别下载近场或远场光斑为 PNG。
 8. 在独立“仿真设置”界面控制 95% 能量自适应裁剪、留白、Gamma、计算网格和输出尺寸。
+9. 把训练好的模态分解模型复制到 `models/` 文件夹，网页右下角“模型”助手自动扫描、
+   显示模式数与骨干网络并支持选择。
+10. 仿真完成后可一键“模态预测（AI 模式分解）”：加载 PyTorch 模型，对当前近场/远场
+    光斑预测各模态权重与相对相位，并在网页上输出模态系数。
+11. 预测结果附带完整可视化：近场/远场残差分析、权重/相位/相位误差柱状图、
+    相位图分析、Pearson 相似系数、SSIM 指标，以及各模态系数误差三线表。
 
 ## 操作流程
 
-    设置光纤参数 → 检测 LP 模式 → 调整/随机 w、φ → 归一化 → 开始仿真
+    设置光纤参数 → 检测 LP 模式 → 调整/随机 w、φ → 归一化 → 开始仿真 → 模态预测
 
 修改光纤参数后需要重新检测模式。修改任意模式的启用状态、权重或相位后需要重新归一化。
 
@@ -25,19 +31,30 @@ lp-mode-web-simulator/
     ├─ 后端.mjs                       JavaScript 后端启动脚本
     ├─ 前端.html                      双击打开的前端入口
     ├─ 启动后端.bat                  Windows 后端快捷启动
+    ├─ models/                        随仓库提供的 3、6、10、12、25 模式权重与说明
+    ├─ fiber-profiles/                本地光纤组合保存目录（生成的 JSON 不上传）
+    ├─ scripts/
+    │  └─ predict_worker.py           模态预测 Python Worker（扫描模型 / 推理）
+    ├─ prediction-server.mjs          预测旁路服务（真实 Node 进程，模型扫描 / Python 推理）
     ├─ app/
     │  ├─ api/
     │  │  ├─ modes/route.ts          后端：检测支持的 LP 模式
     │  │  └─ simulate/route.ts       后端：同步计算近场与远场光斑
+    │  │  ├─ models/route.ts         后端：扫描 models 文件夹并推断模型元数据
+    │  │  └─ predict/route.ts        后端：模态预测与残差/相似度/误差分析
     │  ├─ components/
     │  │  ├─ FiberPanel.tsx          光纤参数面板
     │  │  ├─ ModePanel.tsx           模态 w、φ 与随机按钮
     │  │  ├─ NormalizationPanel.tsx  权重归一化面板
     │  │  ├─ SimulationPanel.tsx     Canvas 光斑与下载
+    │  │  ├─ ModelAgentPanel.tsx     右下角 AI 模型选择助手
+    │  │  └─ PredictionDialog.tsx    预测系数、残差图、柱状图、相位图与三线表
     │  │  ├─ SettingsDialog.tsx      仿真与显示设置界面
     │  │  └─ SharedControls.tsx      公共输入组件
     │  ├─ services/
-    │  │  └─ simulationApi.ts        前端 API 客户端
+    │  │  ├─ simulationApi.ts        前端 API 客户端（模式/仿真）
+    │  │  └─ predictionApi.ts        前端 API 客户端（模型扫描/预测）
+    │  ├─ predictionPhysics.ts       预测分析：Pearson、SSIM、残差、相位与三线表
     │  ├─ lpPhysics.ts               贝塞尔函数、特征根、LP 模式与光场合成
     │  ├─ page.tsx                   前端状态与四步流程编排
     │  ├─ layout.tsx                 页面元数据
@@ -56,6 +73,51 @@ lp-mode-web-simulator/
 
 请求体包含光纤参数、设置后的模式数组及 display 设置。后端返回近场、远场 RGBA 光斑数据的 Base64 编码、总功率及各自裁剪信息；前端将两张图绘制到 Canvas。
 
+### GET /api/models
+
+扫描 `models/` 文件夹中的 `.pth` / `.pt` / `.ckpt` 模型，使用 Python Worker 读取
+每个模型权重，推断模式数量、骨干网络与模式标签。返回模型列表、Python 环境是否可用
+及模型文件夹路径。
+
+### POST /api/predict
+
+请求体包含光纤参数、模式数组、display 设置与所选模型名。后端先生成当前近场/远场
+224×224 灰度图作为模型输入，调用 Python Worker 预测各模态权重与相对相位，再计算：
+
+- 近场/远场 Pearson 相似系数与 SSIM；
+- 真值/重构近场、远场与残差图，相位图（含强度掩码）；
+- 权重 MSE、相位 MAE，以及每个模态的权重绝对/相对误差和相位误差三线表。
+
+要求当前仿真启用的空间模式分量数与模型模式数一致。
+
+## 模态预测的 Python 环境
+
+预测功能由 `prediction-server.mjs`（随 后端.mjs 自动启动的旁路服务）调用
+`scripts/predict_worker.py` 完成。需要 Python 环境包含：
+
+    python -m pip install -r requirements.txt
+
+依赖包含 torch、torchvision、timm、numpy、scipy 和 Pillow。
+
+后端启动时会按以下顺序自动查找 Python：
+
+1. 环境变量 `LP_PREDICT_PYTHON`（优先，旁路服务继承 后端.mjs 的环境变量）；
+2. 项目内的 `.venv` 虚拟环境；
+3. 已激活的 conda 环境（`CONDA_PREFIX`）；
+4. `python3`、`python`、`py`。
+
+如需指定其他 conda 环境，可在 `启动后端.bat` 的 `run_backend` 前添加：
+
+    set "LP_PREDICT_PYTHON=%CONDA_PREFIX%\python.exe"
+
+也可在启动后端之前设置此环境变量；项目不会自动读取 `.env` 文件。
+
+如果模型预测按钮提示 Python 环境不可用，请检查上述路径与依赖是否完整。
+
+注意：预测功能必须通过 `启动后端.bat` 或 `node 后端.mjs` 启动，它们会同时启动
+预测旁路服务（`http://127.0.0.1:3099`）。若只执行 `pnpm dev`，仿真可用但模型
+扫描与预测不可用。
+
 ## 物理模型
 
 - 弱导近似下的标量 LP 模式。
@@ -64,16 +126,17 @@ lp-mode-web-simulator/
 - 特征关系：u² + w² = V²。
 - 偶模角向项：cos(lφ)；奇模角向项：sin(lφ)。
 - 合成光场：E = Σ wᵢ exp(jφᵢ) Eᵢ。
-- 近场强度：I = |E|²，归一化后使用 Gamma = 0.7。
-- 远场强度：对近场复振幅施加 Hann 窗、4 倍零填充，再执行 fftshift(fft2(ifftshift(·)))；流程与参考 MATLAB 脚本一致。
+- 近场强度：I = |E|²，归一化后使用 Gamma = 0.7，并以 Jet 伪彩色显示及导出 PNG。
+- 远场强度：对近场复振幅施加 Hann 窗、4 倍零填充，再执行 fftshift(fft2(ifftshift(·)))；流程与参考 MATLAB 脚本一致，显示及导出同样使用 Jet 伪彩色。
+- 模型输入和 Pearson / SSIM 仍使用独立的灰度强度数组，Jet 仅影响网页与 PNG 的显示配色。
 
 该模型与参考 MATLAB 脚本中的 prime_mode_cal、compute_lpmodes 和 synthesize_mode_field 计算思路一致。
 
 ## MATLAB 一致性验证
 
-项目保留 validation/matlab_reference.m，可使用 MATLAB R2024a 对同一组确定性模态参数生成参考图。
+项目保留 `validation/matlab_reference.m` 参考脚本，生成的 PNG 和 JSON 不随仓库发布。运行前需自行提供 `compute_lpmodes`、`synthesize_mode_field`、`crop_nearfield_adaptive`、`normalize_image` 及其依赖，将它们加入 MATLAB 路径，或通过 `LP_MATLAB_REFERENCE_DIR` 指定函数目录。网页运行不依赖 MATLAB。
 
-当前默认参数验证结果：
+原开发版本记录的默认参数验证结果（本次文件整理未重新运行 MATLAB）：
 
 - V 数：17.7732327747。
 - MATLAB 与网页后端均检测到 70 个空间模式，标签和顺序一致。
@@ -106,7 +169,8 @@ lp-mode-web-simulator/
 
     前端.html
 
-HTML 会连接本地后端并载入完整仿真界面。关闭后端窗口或按 Ctrl+C 即可停止服务。
+HTML 会连接本地后端并载入完整仿真界面。在后端窗口输入 `q`、`quit` 或 `exit`
+并按回车，即可同时关闭网页服务与预测旁路服务；关闭窗口或按 Ctrl+C 也可以停止服务。
 
 此启动方式完全使用 JavaScript/Node.js，没有移植到 Python。
 
@@ -137,6 +201,10 @@ HTML 会连接本地后端并载入完整仿真界面。关闭后端窗口或按
     pnpm start
 
 ## 使用方法
+
+### 自定义光纤参数组合
+
+在左侧“自定义光纤组合”模块填写组合名称并点击“校准并保存当前组合”。后端会自动检测模式，生成 50 组全模式随机权重和相位的近场/远场光斑，并显示真实进度、已用时间与预计剩余时间。完成后按参考 MATLAB 脚本的 P95 × 1.10 规则计算统一固定裁剪半宽比例，将光纤参数、模式数量、模式标签、50 组裁剪比例与显示参数保存到 `fiber-profiles/`。点击已保存组合可恢复参数并直接启用该固定裁剪配置。
 
 ### 第 1 步：设置光纤参数
 
@@ -221,4 +289,10 @@ HTML 会连接本地后端并载入完整仿真界面。关闭后端窗口或按
 
 ## 与数据集脚本的区别
 
-本网页只进行单张光斑仿真，不包含批量样本、校准采样、统一裁剪、CSV 标签或近远场数据集生成。流程固定为“光纤参数 → 模态参数 → 归一化 → 单张光斑”。
+本网页提供单张光斑仿真、模态预测，以及用于自定义光纤组合的 50 组裁剪校准与统一裁剪设置；不导出批量训练数据集或 CSV 训练标签。
+
+## GitHub 文件范围
+
+保留网页源码、LP 物理模型、双分支模态分解网络、Python 推理服务、5 个训练好的 `.pth` 权重，以及安装和启动配置。首次使用请运行 `pnpm install`，在用于预测的 Python 环境中运行 `python -m pip install -r requirements.txt`，然后启动后端。
+
+不包含依赖目录、构建产物、缓存、日志、本地虚拟环境、已保存的光纤组合、验证生成图像和 JSON，以及个人环境路径。新增的模型文件和 `labels.csv` 默认忽略；当前随仓库提供的 5 个权重已明确允许提交。`.openai/hosting.json` 仅保留构建所需的空绑定配置，不含账户标识或凭据。

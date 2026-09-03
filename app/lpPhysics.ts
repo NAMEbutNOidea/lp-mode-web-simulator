@@ -34,10 +34,14 @@ export type SimulationResult = {
 
 export type DisplaySettings = {
   autoCrop: boolean;
+  cropMode: "adaptive" | "fixed";
+  nearfieldCropRatio: number | null;
+  farfieldCropRatio: number | null;
   energyFraction: number;
   paddingFactor: number;
   gamma: number;
   gridSize: number;
+  fftRatio: number;
   outputSize: number;
 };
 
@@ -272,6 +276,84 @@ export function discoverSupportedModes(params: FiberParams) {
   return modes;
 }
 
+export type ComplexField = {
+  real: Float64Array;
+  imag: Float64Array;
+  size: number;
+  intensity: Float64Array;
+  totalPower: number;
+};
+
+export function buildModeField(mode: LPMode, params: FiberParams, size: number) {
+  const pixelCount = size * size;
+  const values = new Float64Array(pixelCount);
+  const halfZone = params.zoneSize / 2;
+  let energy = 0;
+  const boundaryK = besselK(mode.l, mode.w);
+  const boundaryJ = besselJ(mode.l, mode.u);
+  for (let py = 0; py < size; py += 1) {
+    const y = halfZone - (py / (size - 1)) * params.zoneSize;
+    for (let px = 0; px < size; px += 1) {
+      const x = -halfZone + (px / (size - 1)) * params.zoneSize;
+      const r = Math.sqrt(x * x + y * y);
+      const phi = Math.atan2(y, x);
+      const rho = r / params.coreRadius;
+      let radial: number;
+      if (rho <= 1) radial = besselJ(mode.l, mode.u * rho);
+      else radial = (boundaryJ * besselK(mode.l, mode.w * rho)) / boundaryK;
+      const angular = mode.parity === "e" ? Math.cos(mode.l * phi) : Math.sin(mode.l * phi);
+      const value = Number.isFinite(radial) ? radial * angular : 0;
+      const index = py * size + px;
+      values[index] = value;
+      energy += value * value;
+    }
+  }
+  const norm = Math.sqrt(energy) || 1;
+  for (let i = 0; i < pixelCount; i += 1) values[i] /= norm;
+  return values;
+}
+
+export function synthesizeField(params: FiberParams, settings: ModeSetting[], size: number): ComplexField {
+  const active = settings.filter((mode) => mode.enabled && mode.weight !== 0);
+  const amplitudeNorm = Math.sqrt(active.reduce((sum, mode) => sum + mode.weight * mode.weight, 0)) || 1;
+  const pixelCount = size * size;
+  const real = new Float64Array(pixelCount);
+  const imag = new Float64Array(pixelCount);
+  for (const mode of active) {
+    const field = buildModeField(mode, params, size);
+    const normalizedWeight = mode.weight / amplitudeNorm;
+    const c = Math.cos(mode.phase) * normalizedWeight;
+    const s = Math.sin(mode.phase) * normalizedWeight;
+    for (let i = 0; i < pixelCount; i += 1) {
+      real[i] += c * field[i];
+      imag[i] += s * field[i];
+    }
+  }
+  const intensity = new Float64Array(pixelCount);
+  let totalPower = 0;
+  for (let i = 0; i < pixelCount; i += 1) {
+    const value = real[i] * real[i] + imag[i] * imag[i];
+    intensity[i] = value;
+    totalPower += value;
+  }
+  return { real, imag, size, intensity, totalPower };
+}
+
+export function renderNearField(field: ComplexField, params: FiberParams, display: DisplaySettings) {
+  const fixedRatio = display.cropMode === "fixed" ? display.nearfieldCropRatio : null;
+  return cropAndRender(field.intensity, field.size, display, params.zoneSize, fixedRatio);
+}
+
+export function renderFarField(field: ComplexField, display: DisplaySettings) {
+  const farfield = fft2Intensity(field.real, field.imag, field.size, display.fftRatio);
+  const fixedRatio = display.cropMode === "fixed" ? display.farfieldCropRatio : null;
+  return cropAndRender(farfield.intensity, farfield.size, display, 1, fixedRatio);
+}
+
+export function extractSquareField(source: Float64Array, sourceSize: number, centerX: number, centerY: number, halfSize: number) {
+  return extractSquare(source, sourceSize, centerX, centerY, halfSize);
+}
+
 function findEnergyCrop(intensity: Float64Array, size: number, energyFraction: number, paddingFactor: number) {
   let total = 0;
   let weightedX = 0;
@@ -342,10 +424,40 @@ function resizeGrayBilinear(source: Uint8ClampedArray, sourceSize: number, outpu
   return output;
 }
 
-function cropAndRender(intensity: Float64Array, size: number, display: DisplaySettings, physicalSize: number) {
-  const adaptive = display.autoCrop
-    ? findEnergyCrop(intensity, size, display.energyFraction, display.paddingFactor)
-    : { centroidX: Math.floor(size / 2), centroidY: Math.floor(size / 2), energyRadius: size / 2, halfSize: Math.floor(size / 2) };
+export function jetColor(value: number) {
+  const t = Math.max(0, Math.min(1, value));
+  const stops: Array<[number, number, number, number]> = [
+    [0, 0.02, 0.02, 0.52],
+    [0.125, 0, 0, 1],
+    [0.375, 0, 1, 1],
+    [0.625, 1, 1, 0],
+    [0.875, 1, 0, 0],
+    [1, 0.5, 0, 0],
+  ];
+  for (let i = 0; i < stops.length - 1; i += 1) {
+    const [t0, r0, g0, b0] = stops[i];
+    const [t1, r1, g1, b1] = stops[i + 1];
+    if (t >= t0 && t <= t1) {
+      const ratio = (t - t0) / (t1 - t0);
+      return [r0 + (r1 - r0) * ratio, g0 + (g1 - g0) * ratio, b0 + (b1 - b0) * ratio] as const;
+    }
+  }
+  return [0, 0, 0] as const;
+}
+
+function cropAndRender(intensity: Float64Array, size: number, display: DisplaySettings, physicalSize: number, fixedHalfRatio: number | null = null) {
+  let adaptive: { centroidX: number; centroidY: number; energyRadius: number; halfSize: number };
+  if (!display.autoCrop) {
+    adaptive = { centroidX: Math.floor(size / 2), centroidY: Math.floor(size / 2), energyRadius: size / 2, halfSize: Math.floor(size / 2) };
+  } else if (fixedHalfRatio != null && Number.isFinite(fixedHalfRatio) && fixedHalfRatio > 0) {
+    const centroidX = Math.floor(size / 2);
+    const centroidY = Math.floor(size / 2);
+    const boundary = Math.min(centroidX, size - centroidX, centroidY, size - centroidY);
+    const halfSize = Math.max(2, Math.min(boundary, Math.floor(size * Math.min(0.5, fixedHalfRatio))));
+    adaptive = { centroidX, centroidY, energyRadius: halfSize / Math.max(display.paddingFactor, 1), halfSize };
+  } else {
+    adaptive = findEnergyCrop(intensity, size, display.energyFraction, display.paddingFactor);
+  }
   const cropRatio = Math.min(1, (adaptive.halfSize * 2) / size);
   const cropIntensity = extractSquare(intensity, size, adaptive.centroidX, adaptive.centroidY, adaptive.halfSize);
   let minimum = Number.POSITIVE_INFINITY;
@@ -363,14 +475,15 @@ function cropAndRender(intensity: Float64Array, size: number, display: DisplaySe
   const outputGray = resizeGrayBilinear(cropGray, adaptive.halfSize * 2, display.outputSize);
   const pixels = new Uint8ClampedArray(display.outputSize * display.outputSize * 4);
   for (let i = 0; i < outputGray.length; i += 1) {
-    const gray = outputGray[i];
-    pixels[i * 4] = gray;
-    pixels[i * 4 + 1] = gray;
-    pixels[i * 4 + 2] = gray;
+    const [red, green, blue] = jetColor(outputGray[i] / 255);
+    pixels[i * 4] = Math.round(red * 255);
+    pixels[i * 4 + 1] = Math.round(green * 255);
+    pixels[i * 4 + 2] = Math.round(blue * 255);
     pixels[i * 4 + 3] = 255;
   }
   return {
     pixels,
+    grayPixels: outputGray,
     peak,
     crop: {
       cropRatio,
@@ -491,62 +604,14 @@ function fft2Intensity(fieldReal: Float64Array, fieldImag: Float64Array, fieldSi
 }
 
 export function synthesizeSpot(params: FiberParams, settings: ModeSetting[], display: DisplaySettings): SimulationResult {
-  const active = settings.filter((mode) => mode.enabled && mode.weight !== 0);
-  const amplitudeNorm = Math.sqrt(active.reduce((sum, mode) => sum + mode.weight * mode.weight, 0)) || 1;
-  const size = display.gridSize;
-  const pixelCount = size * size;
-  const real = new Float64Array(pixelCount);
-  const imag = new Float64Array(pixelCount);
-  const halfZone = params.zoneSize / 2;
-  for (const mode of active) {
-    const values = new Float64Array(pixelCount);
-    let energy = 0;
-    const boundaryK = besselK(mode.l, mode.w);
-    const boundaryJ = besselJ(mode.l, mode.u);
-    for (let py = 0; py < size; py += 1) {
-      const y = halfZone - (py / (size - 1)) * params.zoneSize;
-      for (let px = 0; px < size; px += 1) {
-        const x = -halfZone + (px / (size - 1)) * params.zoneSize;
-        const r = Math.sqrt(x * x + y * y);
-        const phi = Math.atan2(y, x);
-        const rho = r / params.coreRadius;
-        let radial: number;
-        if (rho <= 1) radial = besselJ(mode.l, mode.u * rho);
-        else radial = (boundaryJ * besselK(mode.l, mode.w * rho)) / boundaryK;
-        const angular = mode.parity === "e" ? Math.cos(mode.l * phi) : Math.sin(mode.l * phi);
-        const value = Number.isFinite(radial) ? radial * angular : 0;
-        const index = py * size + px;
-        values[index] = value;
-        energy += value * value;
-      }
-    }
-    const norm = Math.sqrt(energy) || 1;
-    const normalizedWeight = mode.weight / amplitudeNorm;
-    const c = Math.cos(mode.phase) * normalizedWeight;
-    const s = Math.sin(mode.phase) * normalizedWeight;
-    for (let i = 0; i < pixelCount; i += 1) {
-      const e = values[i] / norm;
-      real[i] += c * e;
-      imag[i] += s * e;
-    }
-  }
-
-  const intensity = new Float64Array(pixelCount);
-  let totalPower = 0;
-  for (let i = 0; i < pixelCount; i += 1) {
-    const value = real[i] * real[i] + imag[i] * imag[i];
-    intensity[i] = value;
-    totalPower += value;
-  }
-
-  const near = cropAndRender(intensity, size, display, params.zoneSize);
-  const farfield = fft2Intensity(real, imag, size, 4);
-  const far = cropAndRender(farfield.intensity, farfield.size, display, 1);
+  const field = synthesizeField(params, settings, display.gridSize);
+  const near = renderNearField(field, params, display);
+  const far = renderFarField(field, display);
   return {
     pixels: near.pixels,
     farPixels: far.pixels,
     peak: near.peak,
-    totalPower,
+    totalPower: field.totalPower,
     crop: near.crop,
     farCrop: far.crop,
   };

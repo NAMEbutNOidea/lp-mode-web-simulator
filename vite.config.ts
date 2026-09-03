@@ -46,9 +46,13 @@ export default defineConfig(async () => {
 
   return {
     css: { postcss: { plugins: [tailwindcss()] } },
-    server: isCodexSeatbeltSandbox
-      ? { watch: { useFsEvents: false, usePolling: true } }
-      : undefined,
+    server: {
+      // models/ 存放大型模型权重，复制/粘贴时不参与文件监视，避免 EBUSY 崩溃
+      watch: {
+        ignored: ["**/models/**", "**/validation/**", "**/.wrangler/**", "**/.next/**"],
+        ...(isCodexSeatbeltSandbox ? { useFsEvents: false, usePolling: true } : {}),
+      },
+    },
     plugins: [
       vinext(),
       sites(),
