@@ -717,3 +717,24 @@ input[type="range"]::-webkit-slider-thumb { border-color: #fff; box-shadow: 0 0 
   .mode-formula-grid { gap: 10px; }
   .mode-formula-item math { font-size: 16px; }
 }
+
+/* Local Python / conda environment settings */
+.python-environment-dialog { margin: auto; padding: 0; width: min(760px, calc(100vw - 28px)); max-height: calc(100dvh - 36px); overflow-y: auto; border: 1px solid var(--line-strong); border-radius: 16px; background: var(--panel); color: var(--ink); box-shadow: var(--shadow); }
+.python-environment-dialog::backdrop { background: rgba(31, 45, 56, .38); backdrop-filter: blur(4px); }
+.python-environment-dialog .settings-header { display: flex; justify-content: space-between; gap: 16px; }
+.python-environment-body { padding: 0 24px 10px; font-size: 13px; }
+.python-environment-current { display: grid; gap: 8px; padding: 14px; margin-bottom: 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-soft); }
+.python-environment-current code, .python-environment-help code { overflow-wrap: anywhere; }
+.python-environment-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.python-environment-body select, .python-environment-path input { width: 100%; min-width: 0; padding: 11px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface-soft); color: var(--ink); font-size: 12px; }
+.python-environment-body select:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.python-environment-path { display: grid; gap: 8px; margin-top: 16px; }
+.python-environment-help { color: var(--muted); font-size: 12px; line-height: 1.7; margin-top: 10px; }
+.python-environment-notice { padding: 12px; background: var(--cyan-soft); color: var(--cyan-strong); border-radius: 8px; margin-top: 12px; }
+.python-environment-report { margin-top: 16px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; }
+.python-environment-report ul { list-style: none; padding: 0; margin: 10px 0; }
+.python-environment-report li { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.python-environment-report .available { color: var(--success); }
+.python-environment-report .unavailable { color: var(--danger); }
+.python-environment-link { display: block; margin-top: 8px; padding: 4px 0; border: 0; background: transparent; color: var(--cyan-strong); text-decoration: underline; cursor: pointer; }
+@media (max-width: 620px) { .topbar { flex-wrap: wrap; gap: 8px; padding-bottom: 10px; } .topbar-actions { flex-wrap: wrap; } .python-environment-body { padding: 0 16px 10px; } }

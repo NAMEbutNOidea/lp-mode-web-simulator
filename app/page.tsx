@@ -6,6 +6,7 @@ import FiberProfilePanel from "./components/FiberProfilePanel";
 import ModePanel from "./components/ModePanel";
 import ModeSelectorDialog from "./components/ModeSelectorDialog";
 import SettingsDialog from "./components/SettingsDialog";
+import PythonEnvironmentDialog from "./components/PythonEnvironmentDialog";
 import SimulationPanel from "./components/SimulationPanel";
 import ModelAgentPanel from "./components/ModelAgentPanel";
 import PredictionPanel from "./components/PredictionDialog";
@@ -35,6 +36,8 @@ export default function Home() {
   const [crop, setCrop] = useState<CropInfo | null>(null);
   const [farCrop, setFarCrop] = useState<CropInfo | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [pythonEnvironmentOpen, setPythonEnvironmentOpen] = useState(false);
+  const [pythonEnvironmentRevision, setPythonEnvironmentRevision] = useState(0);
   const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
   const [selectedModel, setSelectedModel] = useState<ModelInfo | null>(null);
   const [prediction, setPrediction] = useState<PredictionPayload | null>(null);
@@ -185,20 +188,26 @@ export default function Home() {
   }
 
   return <main className="app-shell">
-    <header className="topbar"><div className="brand-mark"><span className="brand-core"/></div><div><p className="eyebrow">FIBER MODE LAB · FRONTEND / API / PHYSICS</p><h1>少模光纤单光斑仿真器</h1></div><div className="topbar-actions"><button className="settings-button" onClick={() => setSettingsOpen(true)}><span>⚙</span> 仿真设置</button><div className="header-status"><span className="status-dot"/>前后端分离计算</div></div></header>
+    <header className="topbar"><div className="brand-mark"><span className="brand-core"/></div><div><p className="eyebrow">FIBER MODE LAB · FRONTEND / API / PHYSICS</p><h1>少模光纤单光斑仿真器</h1></div><div className="topbar-actions"><button type="button" className="settings-button" onClick={() => setPythonEnvironmentOpen(true)}>Python 环境</button><button className="settings-button" onClick={() => setSettingsOpen(true)}><span>⚙</span> 仿真设置</button><div className="header-status"><span className="status-dot"/>前后端分离计算</div></div></header>
         <section className="workflow" aria-label="仿真与预测流程">
       <div className="workflow-row">{["光纤参数与组合", "模态参数与归一化", "光斑仿真"].map((label, index) => <div className={`workflow-step ${currentStep >= index + 1 ? "active" : ""}`} key={label}><span>{index + 1}</span><strong>{label}</strong></div>)}</div>
       <div className="workflow-row">{["预测参数", "可视化误差"].map((label, index) => { const step = index + 4; const active = step === 4 ? predictionStepActive : visualizationStepActive; return <div className={`workflow-step ${active ? "active" : ""}`} key={label}><span>{step}</span><strong>{label}</strong></div>; })}</div>
     </section>
     <div className="workspace-grid">
-      <aside className="left-column"><section className="panel fiber-combined-panel" aria-label="光纤参数与自定义光纤组合"><FiberPanel fiber={fiber} vNumber={vNumber} detected={modes.length > 0 && !fiberChanged} supportedCount={modes.length} familyCount={modeFamilyCount} busy={isBusy || profileBusy} onChange={updateFiber} onDetect={detectModes}/><FiberProfilePanel fiber={fiber} display={display} disabled={isBusy || predicting} onApply={applyFiberProfile} onStatus={setMessage} onBusyChange={setProfileBusy}/></section></aside>
+      <aside className="left-column"><section className="panel fiber-combined-panel" aria-label="光纤参数与自定义光纤组合"><FiberPanel fiber={fiber} vNumber={vNumber} detected={modes.length > 0 && !fiberChanged} supportedCount={modes.length} familyCount={modeFamilyCount} busy={isBusy || profileBusy} onChange={updateFiber} onDetect={detectModes}/><FiberProfilePanel environmentRevision={pythonEnvironmentRevision} onConfigurePython={() => setPythonEnvironmentOpen(true)} fiber={fiber} display={display} disabled={isBusy || predicting} onApply={applyFiberProfile} onStatus={setMessage} onBusyChange={setProfileBusy}/></section></aside>
       <ModePanel modes={modes} busy={isBusy || profileBusy} normalized={isNormalized && modes.length > 0} norm={weightNorm} onUpdate={updateMode} onRandom={randomizeModes} onOpenSelector={() => setModeSelectorOpen(true)} onNormalize={normalizeWeights}/>
       <aside className="right-column"><SimulationPanel nearCanvasRef={nearCanvasRef} farCanvasRef={farCanvasRef} simulated={isSimulated} busy={isBusy || profileBusy || predicting} hasModes={modes.length > 0} totalPower={totalPower} display={display} nearCrop={crop} farCrop={farCrop} onSimulate={simulate} onDownloadNear={() => downloadSpot("near")} onDownloadFar={() => downloadSpot("far")} onPredict={predictModes} canPredict={isSimulated && Boolean(selectedModel) && !isBusy && !profileBusy && !predicting && modeCountMatches} modelSelected={Boolean(selectedModel)} predicting={predicting} modeCountMatches={modeCountMatches} modelNumModes={selectedModel?.numModes ?? null} simModeCount={activeModes.length}/><section className="status-card" aria-live="polite"><span className={`status-indicator ${isBusy || profileBusy || predicting ? "busy" : ""}`}/><div><strong>计算状态</strong><p>{message}</p></div></section></aside>
     </div>
     <PredictionPanel prediction={prediction} busy={predicting}/>
     <footer className="app-footer"><span>模型：弱导近似 · 阶跃型光纤 · 贝塞尔函数特征方程</span><span>参考 generate_dataset_matlab.m</span></footer>
+    {pythonEnvironmentOpen && <PythonEnvironmentDialog disabled={predicting || profileBusy} onClose={() => setPythonEnvironmentOpen(false)} onApplied={() => {
+      setPythonEnvironmentRevision((revision) => revision + 1);
+      setSelectedModel(null);
+      setPrediction(null);
+      setMessage("Python 环境已切换，请在右下角“模型”中重新选择模型；光纤校准已使用新环境。");
+    }}/>}
     <SettingsDialog open={settingsOpen} settings={display} onChange={updateDisplay} onReset={() => updateDisplay(DEFAULT_DISPLAY)} onClose={() => setSettingsOpen(false)}/>
     <ModeSelectorDialog open={modeSelectorOpen} modes={modes} busy={isBusy} onToggle={toggleModeSelection} onSetAll={setAllModesEnabled} onClose={() => setModeSelectorOpen(false)}/>
-    <ModelAgentPanel selected={selectedModel} onSelect={(model) => { setSelectedModel(model); setPrediction(null); setMessage(model.numModes != null && activeModes.length !== model.numModes ? `已选择模型：${model.name}（${model.numModes} 个模式）——与当前仿真 ${activeModes.length} 个模式不一致，请调整光纤参数` : `已选择模型：${model.name}（${model.numModes ?? "?"} 个模式）`); }} onStatus={(message) => setMessage(message)} simModeCount={activeModes.length}/>
+    <ModelAgentPanel key={pythonEnvironmentRevision} onConfigurePython={() => setPythonEnvironmentOpen(true)} selected={selectedModel} onSelect={(model) => { setSelectedModel(model); setPrediction(null); setMessage(model.numModes != null && activeModes.length !== model.numModes ? `已选择模型：${model.name}（${model.numModes} 个模式）——与当前仿真 ${activeModes.length} 个模式不一致，请调整光纤参数` : `已选择模型：${model.name}（${model.numModes ?? "?"} 个模式）`); }} onStatus={(message) => setMessage(message)} simModeCount={activeModes.length}/>
   </main>;
 }

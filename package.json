@@ -1,5 +1,5 @@
 {
-  "name": "sites-project",
+  "name": "lp-mode-web-simulator",
   "version": "0.1.0",
   "private": true,
   "engines": {
@@ -35,5 +35,6 @@
     "vite": "8.0.13",
     "wrangler": "4.92.0"
   },
-  "type": "module"
+  "type": "module",
+  "description": "Local LP-mode fiber simulation, modal decomposition, and conda environment selection."
 }

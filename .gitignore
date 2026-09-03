@@ -22,7 +22,9 @@ next-env.d.ts
 .pytest_cache/
 
 # Local credentials and editor state
+# Includes .env.local.bat and the frontend selection .env.python.local.json
 .env*
+.dev.vars*
 *.pem
 *.key
 *.p12

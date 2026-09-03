@@ -2,6 +2,22 @@
 
 这是一个参考 generate_dataset_matlab.m 物理流程实现的前后端分离网页。它根据阶跃型光纤参数自动检测受支持的 LP 模式，设置各模式的幅度权重 w 与相位 φ，归一化后同步生成少模近场与远场光斑。
 
+## 快速开始
+
+需要 Node.js 22.13 或更高版本、pnpm，以及用于预测的 Python / conda 环境。
+
+```shell
+pnpm install
+python -m pip install -r requirements.txt
+node backend.mjs
+```
+
+请在准备用于预测的 Python 环境中安装 `requirements.txt`。Windows 用户也可双击 `启动后端.bat`。
+启动后访问 `http://localhost:3000`，在页面顶部的 **Python 环境** 中选择 conda 环境并点击 **应用此环境**。
+仓库已包含 3、6、10、12、25 模式的模型权重；在右下角 **模型** 面板中选择与仿真模式数匹配的模型即可预测。
+
+环境选择保存在项目根目录 `.env.python.local.json`。此文件和其他 `.env*` 本地配置均由 Git 忽略，重启仍可读取，不上传 GitHub。
+
 ## 功能
 
 1. 设置纤芯半径、数值孔径、工作波长和计算区域。
@@ -99,18 +115,32 @@ lp-mode-web-simulator/
 
 依赖包含 torch、torchvision、timm、numpy、scipy 和 Pillow。
 
-后端启动时会按以下顺序自动查找 Python：
+### 在网页中选择 conda 环境（推荐）
+
+1. 启动后端后，点击网页顶部的“Python 环境”。
+2. 从自动发现的环境中选择；也可粘贴环境中 `python.exe`（macOS / Linux 为 `python` 或 `python3`）的完整路径。
+3. 点击“检查依赖”查看 Python 版本及 torch、torchvision、timm、numpy、scipy、Pillow 的导入结果。
+4. 点击“应用此环境”。检查全部通过后立即用于后续预测与校准，不必重启后端；依赖缺失时保留当前环境。
+
+选择结果保存到**项目目录中的 `.env.python.local.json`**，重启后继续使用。该文件及临时写入文件均被 `.gitignore` 的 `.env*` 规则排除，不提交 GitHub。个人路径不会写入源码。若之前使用了 `.env.local.bat`，网页保存的选择优先于它；删除 `.env.python.local.json` 并重启后端可恢复自动选择。
+
+切换后需要重新选择模型。进行中的预测或校准不会被中断。安装新环境后可点击“重新扫描”；自动发现覆盖 conda 环境注册表、常见用户安装目录、项目 `.venv`、已激活环境与 PATH。未发现的安装可手动填写路径。
+
+### 自动选择及兼容配置
+
+未在网页保存选择时，后端按以下顺序选择可用的解释器文件：
 
 1. 环境变量 `LP_PREDICT_PYTHON`（优先，旁路服务继承 后端.mjs 的环境变量）；
 2. 项目内的 `.venv` 虚拟环境；
 3. 已激活的 conda 环境（`CONDA_PREFIX`）；
-4. `python3`、`python`、`py`。
+4. 自动发现的 conda 环境；
+5. PATH 中的 `python3`、`python`。
 
 如需指定其他 conda 环境，可在 `启动后端.bat` 的 `run_backend` 前添加：
 
     set "LP_PREDICT_PYTHON=%CONDA_PREFIX%\python.exe"
 
-也可在启动后端之前设置此环境变量；项目不会自动读取 `.env` 文件。
+也可在启动后端之前设置此环境变量；Windows 启动脚本支持被 Git 忽略的 `.env.local.bat`。网页保存的环境选择优先于启动变量，普通 `.env` 文件不会自动加载。
 
 如果模型预测按钮提示 Python 环境不可用，请检查上述路径与依赖是否完整。
 
@@ -172,7 +202,7 @@ lp-mode-web-simulator/
 HTML 会连接本地后端并载入完整仿真界面。在后端窗口输入 `q`、`quit` 或 `exit`
 并按回车，即可同时关闭网页服务与预测旁路服务；关闭窗口或按 Ctrl+C 也可以停止服务。
 
-此启动方式完全使用 JavaScript/Node.js，没有移植到 Python。
+网页与 LP 物理仿真使用 JavaScript / Node.js，模型预测及光纤组合校准由 Python Worker 完成。
 
 ### 兼容启动方式（Windows）
 
@@ -296,3 +326,5 @@ HTML 会连接本地后端并载入完整仿真界面。在后端窗口输入 `q
 保留网页源码、LP 物理模型、双分支模态分解网络、Python 推理服务、5 个训练好的 `.pth` 权重，以及安装和启动配置。首次使用请运行 `pnpm install`，在用于预测的 Python 环境中运行 `python -m pip install -r requirements.txt`，然后启动后端。
 
 不包含依赖目录、构建产物、缓存、日志、本地虚拟环境、已保存的光纤组合、验证生成图像和 JSON，以及个人环境路径。新增的模型文件和 `labels.csv` 默认忽略；当前随仓库提供的 5 个权重已明确允许提交。`.openai/hosting.json` 仅保留构建所需的空绑定配置，不含账户标识或凭据。
+
+运行环境选择逻辑的测试：`node --test scripts/python-environments.test.mjs`。

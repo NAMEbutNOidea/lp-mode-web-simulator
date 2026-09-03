@@ -9,7 +9,8 @@ function formatTime(timestamp: number) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export default function ModelAgentPanel({ selected, onSelect, onStatus, simModeCount }: {
+export default function ModelAgentPanel({ selected, onSelect, onStatus, simModeCount, onConfigurePython }: {
+  onConfigurePython: () => void;
   selected: ModelInfo | null;
   onSelect: (model: ModelInfo) => void;
   onStatus?: (message: string) => void;
@@ -68,7 +69,7 @@ export default function ModelAgentPanel({ selected, onSelect, onStatus, simModeC
       <div className="agent-body">
         {loading && <div className="agent-loading">正在扫描模型文件…</div>}
         {error && <div className="agent-error">{error}</div>}
-        {data && !data.pythonOk && <div className="agent-warning">Python 环境不可用：{data.pythonError}<br/>请在 <code>启动后端.bat</code> 中设置 <code>LP_PREDICT_PYTHON</code> 指向包含 torch/timm 的 conda python。</div>}
+        {data && !data.pythonOk && <div className="agent-warning">Python 环境不可用：{data.pythonError}<br/><button type="button" className="python-environment-link" onClick={onConfigurePython}>选择 Python / conda 环境</button></div>}
         {data && count === 0 && !loading && (
           <div className="agent-empty">
             将训练好的模型文件（<code>.pth</code> / <code>.pt</code> / <code>.ckpt</code>）复制到：<br/><code>{data.modelsDir}</code><br/>然后点击右上角 ↻ 刷新。

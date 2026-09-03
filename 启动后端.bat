@@ -3,6 +3,9 @@ setlocal
 cd /d "%~dp0"
 title LP Fiber Simulator Backend
 
+rem Optional machine-local Python configuration (ignored by Git).
+if exist "%~dp0.env.local.bat" call "%~dp0.env.local.bat"
+
 set "NODE_EXE=%USERPROFILE%\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
 if exist "%NODE_EXE%" goto run_backend
 

@@ -17,7 +17,9 @@ function formatDuration(milliseconds: number | null | undefined) {
   return `${minutes} 分 ${String(seconds % 60).padStart(2, "0")} 秒`;
 }
 
-export default function FiberProfilePanel({ fiber, display, disabled, onApply, onStatus, onBusyChange }: {
+export default function FiberProfilePanel({ fiber, display, disabled, onApply, onStatus, onBusyChange, onConfigurePython, environmentRevision }: {
+  onConfigurePython: () => void;
+  environmentRevision: number;
   fiber: FiberParams;
   display: DisplaySettings;
   disabled: boolean;
@@ -45,7 +47,7 @@ export default function FiberProfilePanel({ fiber, display, disabled, onApply, o
       .catch((caught) => { if (!cancelled) setError(caught instanceof Error ? caught.message : "读取组合失败"); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [environmentRevision]);
 
   async function refresh() {
     setLoading(true);
@@ -100,7 +102,7 @@ export default function FiberProfilePanel({ fiber, display, disabled, onApply, o
       <div className="profile-progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progressJob?.progress ?? 0)}><span style={{ width: `${progressJob?.progress ?? 0}%` }}/></div>
       <div className="profile-progress-meta"><span>光斑 {progressJob?.completedSamples ?? 0}/{progressJob?.totalSamples ?? 50}</span><span>已用 {formatDuration(progressJob?.elapsedMs)}</span><span>预计剩余 {formatDuration(progressJob?.estimatedRemainingMs)}</span></div>
     </div>}
-    {error && <p className="profile-error">{error}</p>}
+    {error && <div className="profile-error" role="alert">{error}{/python|torch|timm|numpy|scipy|pillow/i.test(error) && <button type="button" className="python-environment-link" onClick={onConfigurePython}>选择 Python / conda 环境</button>}</div>}
     <div className="profile-list-heading"><strong>已保存组合</strong><span>{profiles.length}</span></div>
     {loading && <p className="profile-empty">正在读取组合…</p>}
     {!loading && profiles.length === 0 && <p className="profile-empty">尚未保存组合。</p>}

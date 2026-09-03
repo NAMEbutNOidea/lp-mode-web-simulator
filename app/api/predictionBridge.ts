@@ -68,3 +68,15 @@ export async function sidecarStartFiberProfileJob(payload: Record<string, unknow
 export async function sidecarFiberProfileJob(jobId: string) {
   return relay<{ job: Record<string, unknown> }>(`/api/fiber-profile-jobs/${encodeURIComponent(jobId)}`);
 }
+
+export async function sidecarPythonEnvironments() {
+  return relay<import("../services/pythonEnvironmentApi").PythonEnvironmentStatus>("/api/python-environments", undefined, 15000);
+}
+
+export async function sidecarUpdatePythonEnvironment(payload: { pythonPath: string; action: "check" | "select" }) {
+  return relay<import("../services/pythonEnvironmentApi").PythonEnvironmentResult>("/api/python-environments", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }, 120000);
+}
