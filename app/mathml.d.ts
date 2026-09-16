@@ -13,6 +13,8 @@ declare module "react" {
     interface IntrinsicElements {
       math: MathMLProps & { display?: "block" | "inline" };
       mrow: MathMLProps;
+      mtext: MathMLProps;
+      mover: MathMLProps & { accent?: "true" | "false" };
       mi: MathMLProps & { mathvariant?: "normal" | "italic" };
       mo: MathMLProps & { stretchy?: "true" | "false"; largeop?: "true" | "false" };
       mn: MathMLProps;

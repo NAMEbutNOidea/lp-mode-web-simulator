@@ -15,9 +15,6 @@ const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === 'seatbelt';
 const localBindingConfig = {
   main: 'vinext/server/app-router-entry',
   compatibility_flags: ['nodejs_compat'],
-  vars: {
-    LP_PREDICT_SERVER_URL: process.env.LP_PREDICT_SERVER_URL || 'http://127.0.0.1:3099',
-  },
   d1_databases: d1
     ? [
         {
@@ -52,7 +49,7 @@ export default defineConfig(async () => {
     server: {
       // models/ 存放大型模型权重，复制/粘贴时不参与文件监视，避免 EBUSY 崩溃
       watch: {
-        ignored: ["**/.env.python.local.json*", "**/models/**", "**/validation/**", "**/.wrangler/**", "**/.next/**"],
+        ignored: ["**/models/**", "**/validation/**", "**/.wrangler/**", "**/.next/**"],
         ...(isCodexSeatbeltSandbox ? { useFsEvents: false, usePolling: true } : {}),
       },
     },

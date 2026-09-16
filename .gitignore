@@ -1,66 +1,60 @@
-# Dependencies and local Python environments
-/node_modules/
+# dependencies
+/node_modules
 /.pnp
 .pnp.*
-/.yarn/
-/.venv/
-/venv/
-__pycache__/
-*.py[cod]
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
-# Build products and caches
+# testing
+/coverage
+
+# next.js
 /.next/
 /.vinext/
-/dist/
 /out/
-/.wrangler/
-/.vercel/
-/coverage/
-next-env.d.ts
-*.tsbuildinfo
-.eslintcache
-.pytest_cache/
 
-# Local credentials and editor state
-# Includes .env.local.bat and the frontend selection .env.python.local.json
-.env*
-.dev.vars*
-*.pem
-*.key
-*.p12
-*.pfx
-.npmrc
-/.vscode/
-/.idea/
-/.agents/
-/.codex/
-/.openai/*
-!/.openai/hosting.json
+# misc
 .DS_Store
-Thumbs.db
-*.log
+*.pem
 
-# Loaded data and generated results
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# local environment
+.env*
+
+# deployment and generated files
+.vercel
+next-env.d.ts
+/dist/
+/.wrangler/
+/outputs/
+/work/
+.lp-backend-runtime.json
+# 训练好的模型权重（体积大且由用户自行放入）
+models/*.pth
+models/*.pt
+models/*.ckpt
+
+# Local data and loaded artifacts (never commit)
 /fiber-profiles/*
 !/fiber-profiles/README.md
-/validation/*
-!/validation/matlab_reference.m
+/models/*
+!/models/README.md
+/validation/
+/.env.python.local.json
 /outputs/
 /output/
 /results/
 /saved_results/
-/work/
 /tmp/
 /uploads/
 /downloads/
 /data/
 /datasets/
-
-# Keep only the five bundled model weights; ignore local additions.
-/models/**
-!/models/README.md
-!/models/3.pth
-!/models/6.pth
-!/models/10.pth
-!/models/12.pth
-!/models/25.pth

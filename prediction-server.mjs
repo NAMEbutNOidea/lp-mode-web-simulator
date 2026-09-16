@@ -2,8 +2,7 @@
 // vinext dev 的路由处理器运行在 workerd 沙箱中，无法访问真实文件系统或启动
 // Python 子进程；本服务以普通 Node.js 运行在 127.0.0.1:3099，承担模型扫描与
 // 推理任务。由 后端.mjs 在启动 pnpm dev 的同时启动。
-import { spawn } from "node:child_process";
-import { createPythonEnvironmentManager, PythonEnvironmentError } from "./scripts/python-environments.mjs";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
@@ -16,17 +15,48 @@ const FIBER_PROFILES_DIR = process.env.LP_FIBER_PROFILES_DIR ? resolve(process.e
 const WORKER_PATH = join(PROJECT_DIR, "scripts", "predict_worker.py");
 const MODEL_EXTENSIONS = new Set([".pth", ".pt", ".ckpt"]);
 
-const pythonEnvironments = createPythonEnvironmentManager({ projectDir: PROJECT_DIR });
+const PYTHON_CANDIDATES = [
+  process.env.LP_PREDICT_PYTHON,
+  "python",
+  "py",
+].filter(Boolean);
+
+let cachedPython;
+
+function findPython() {
+  if (cachedPython !== undefined) return cachedPython;
+  for (const candidate of PYTHON_CANDIDATES) {
+    try {
+      const result = spawnSync(candidate, ["-c", "import sys; print(sys.version.split()[0])"], {
+        encoding: "utf8",
+        timeout: 15000,
+        shell: candidate === "py",
+        windowsHide: true,
+      });
+      if (result.status === 0 && result.stdout?.trim()) {
+        cachedPython = candidate;
+        return candidate;
+      }
+    } catch {
+      // 尝试下一个候选
+    }
+  }
+  cachedPython = null;
+  return null;
+}
+
+function pythonHint() {
+  return "未找到可用的 Python 环境（需要 torch / torchvision / timm / numpy / Pillow）。请在 启动后端.bat 中设置 LP_PREDICT_PYTHON（例如指向 conda 环境的 python.exe），或在 README 中查看配置说明。";
+}
 
 function runPython(job, timeoutMs = 300000, onProgress) {
-  let python;
-  try { python = pythonEnvironments.executable(); }
-  catch (error) { return Promise.resolve({ ok: false, error: error.message }); }
+  const python = findPython();
+  if (!python) return Promise.resolve({ ok: false, error: pythonHint() });
   return new Promise((resolvePromise) => {
     const child = spawn(python, [WORKER_PATH], {
       cwd: PROJECT_DIR,
       windowsHide: true,
-      shell: false,
+      shell: python === "py",
       stdio: ["pipe", "pipe", "pipe"],
       env: { ...process.env, PYTHONIOENCODING: "utf-8" },
     });
@@ -348,7 +378,6 @@ function readJsonBody(request) {
 async function respond(response, status, payload) {
   response.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store",
     // workerd 沙箱的 fetch 对 keep-alive 连接复用有兼容问题，逐次关闭连接更可靠
     "Connection": "close",
   });
@@ -361,28 +390,6 @@ function start(port) {
       const url = new URL(request.url, `http://127.0.0.1:${port}`);
       if (request.method === "GET" && url.pathname === "/health") {
         return await respond(response, 200, { ok: true });
-      }
-      if (url.pathname === "/api/python-environments") {
-        const host = new URL(`http://${request.headers.host || "invalid"}`);
-        if (!["localhost", "127.0.0.1", "[::1]"].includes(host.hostname)
-          || (request.headers.origin && request.headers.origin !== host.origin)) {
-          return await respond(response, 403, { error: "Python 环境仅支持从本机网页管理。" });
-        }
-        if (request.method === "GET") return await respond(response, 200, pythonEnvironments.status());
-        if (request.method === "POST") {
-          if (!request.headers["content-type"]?.startsWith("application/json")) {
-            return await respond(response, 415, { error: "请使用 JSON 提交环境配置。" });
-          }
-          const body = await readJsonBody(request);
-          if (!body || !["check", "select"].includes(body.action)) {
-            return await respond(response, 400, { error: "未知的环境操作。" });
-          }
-          if (body.action === "select") {
-            return await respond(response, 200, await pythonEnvironments.select(body.pythonPath));
-          }
-          const report = await pythonEnvironments.check(body.pythonPath);
-          return await respond(response, 200, { ...pythonEnvironments.status(), applied: false, report });
-        }
       }
       if (request.method === "GET" && url.pathname === "/api/models") {
         return await respond(response, 200, await handleModels());
@@ -410,14 +417,13 @@ function start(port) {
       }
       return await respond(response, 404, { error: "未找到接口" });
     } catch (error) {
-      return await respond(response, error instanceof PythonEnvironmentError ? error.status : 500, { error: error instanceof Error ? error.message : "预测服务内部错误" });
+      return await respond(response, 500, { error: error instanceof Error ? error.message : "预测服务内部错误" });
     }
   });
   server.on("error", (error) => {
-    if (error.code === "EADDRINUSE" && port < 3104) {
-      console.log(`端口 ${port} 被占用，尝试 ${port + 1}…`);
-      start(port + 1);
-      return;
+    if (error.code === "EADDRINUSE") {
+      console.error(`预测端口 ${port} 被占用。请重新运行 启动后端.bat，启动器会自动清理本项目遗留进程。`);
+      process.exit(1);
     }
     console.error("预测旁路服务启动失败：", error.message);
     process.exit(1);

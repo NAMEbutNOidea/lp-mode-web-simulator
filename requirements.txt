@@ -1,6 +1,0 @@
-torch
-torchvision
-timm
-numpy
-scipy
-Pillow

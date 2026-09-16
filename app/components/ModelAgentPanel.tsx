@@ -9,8 +9,7 @@ function formatTime(timestamp: number) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export default function ModelAgentPanel({ selected, onSelect, onStatus, simModeCount, onConfigurePython }: {
-  onConfigurePython: () => void;
+export default function ModelAgentPanel({ selected, onSelect, onStatus, simModeCount }: {
   selected: ModelInfo | null;
   onSelect: (model: ModelInfo) => void;
   onStatus?: (message: string) => void;
@@ -60,7 +59,7 @@ export default function ModelAgentPanel({ selected, onSelect, onStatus, simModeC
       <header className="agent-panel-header">
         <div className="agent-avatar" aria-hidden="true"><span className="agent-spark">✦</span></div>
         <div>
-          <p className="agent-kicker">AI MODE ASSISTANT</p>
+          <p className="agent-kicker">智能模态分解</p>
           <h3>模态分解模型</h3>
           <p className="agent-subtitle">扫描 models 文件夹 · 选择模型后用于预测</p>
         </div>
@@ -69,7 +68,7 @@ export default function ModelAgentPanel({ selected, onSelect, onStatus, simModeC
       <div className="agent-body">
         {loading && <div className="agent-loading">正在扫描模型文件…</div>}
         {error && <div className="agent-error">{error}</div>}
-        {data && !data.pythonOk && <div className="agent-warning">Python 环境不可用：{data.pythonError}<br/><button type="button" className="python-environment-link" onClick={onConfigurePython}>选择 Python / conda 环境</button></div>}
+        {data && !data.pythonOk && <div className="agent-warning">Python 环境不可用：{data.pythonError}<br/>请在 <code>启动后端.bat</code> 中设置 <code>LP_PREDICT_PYTHON</code> 指向包含 torch/timm 的 conda python。</div>}
         {data && count === 0 && !loading && (
           <div className="agent-empty">
             将训练好的模型文件（<code>.pth</code> / <code>.pt</code> / <code>.ckpt</code>）复制到：<br/><code>{data.modelsDir}</code><br/>然后点击右上角 ↻ 刷新。
@@ -94,7 +93,7 @@ export default function ModelAgentPanel({ selected, onSelect, onStatus, simModeC
         {data && count > 0 && <p className="agent-footnote">已识别 {selectedCount} / {count} 个模型；{selectedMismatch ? <strong className="agent-mismatch-inline">当前模型与仿真模式数不一致，请调整光纤参数。</strong> : "预测前需保持仿真模式数与模型一致。"}</p>}
       </div>
     </div>
-    <button type="button" className={`agent-fab ${open ? "open" : ""}`} onClick={togglePanel} aria-expanded={open} title="AI 模态分解助手">
+    <button type="button" className={`agent-fab ${open ? "open" : ""}`} onClick={togglePanel} aria-expanded={open} title="智能模态分解助手">
       <span className="agent-fab-icon">✦</span>
       <span className="agent-fab-label">{open ? "收起" : "模型"}</span>
       <span className={`agent-fab-dot ${selected ? "selected" : ""}`} />

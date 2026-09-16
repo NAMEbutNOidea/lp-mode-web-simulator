@@ -11,9 +11,9 @@ lp-mode-web-simulator 的模态分解推理 Worker。
    "far": [...], "size": 224}
       -> 加载模型并对近场/远场图像对做模态分解预测。
 
-需要 Python 环境包含 torch / torchvision / timm / numpy / scipy / Pillow。
-示例（先激活已安装依赖的 Python 环境）：
-  python scripts/predict_worker.py
+需要 Python 环境包含 torch / torchvision / timm / numpy / Pillow。
+示例（conda）：
+  <path-to-python> scripts\\predict_worker.py
 """
 
 import csv

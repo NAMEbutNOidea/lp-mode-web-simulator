@@ -2,22 +2,6 @@
 
 这是一个参考 generate_dataset_matlab.m 物理流程实现的前后端分离网页。它根据阶跃型光纤参数自动检测受支持的 LP 模式，设置各模式的幅度权重 w 与相位 φ，归一化后同步生成少模近场与远场光斑。
 
-## 快速开始
-
-需要 Node.js 22.13 或更高版本、pnpm，以及用于预测的 Python / conda 环境。
-
-```shell
-pnpm install
-python -m pip install -r requirements.txt
-node backend.mjs
-```
-
-请在准备用于预测的 Python 环境中安装 `requirements.txt`。Windows 用户也可双击 `启动后端.bat`。
-启动后访问 `http://localhost:3000`，在页面顶部的 **Python 环境** 中选择 conda 环境并点击 **应用此环境**。
-仓库已包含 3、6、10、12、25 模式的模型权重；在右下角 **模型** 面板中选择与仿真模式数匹配的模型即可预测。
-
-环境选择保存在项目根目录 `.env.python.local.json`。此文件和其他 `.env*` 本地配置均由 Git 忽略，重启仍可读取，不上传 GitHub。
-
 ## 功能
 
 1. 设置纤芯半径、数值孔径、工作波长和计算区域。
@@ -47,8 +31,8 @@ lp-mode-web-simulator/
     ├─ 后端.mjs                       JavaScript 后端启动脚本
     ├─ 前端.html                      双击打开的前端入口
     ├─ 启动后端.bat                  Windows 后端快捷启动
-    ├─ models/                        随仓库提供的 3、6、10、12、25 模式权重与说明
-    ├─ fiber-profiles/                本地光纤组合保存目录（生成的 JSON 不上传）
+    ├─ models/                        训练好的模态分解模型文件夹（复制 .pth 到这里）
+    ├─ fiber-profiles/                网页保存的自定义光纤组合与50组光斑裁剪校准结果
     ├─ scripts/
     │  └─ predict_worker.py           模态预测 Python Worker（扫描模型 / 推理）
     ├─ prediction-server.mjs          预测旁路服务（真实 Node 进程，模型扫描 / Python 推理）
@@ -111,36 +95,16 @@ lp-mode-web-simulator/
 预测功能由 `prediction-server.mjs`（随 后端.mjs 自动启动的旁路服务）调用
 `scripts/predict_worker.py` 完成。需要 Python 环境包含：
 
-    python -m pip install -r requirements.txt
+    torch  torchvision  timm  numpy  Pillow
 
-依赖包含 torch、torchvision、timm、numpy、scipy 和 Pillow。
-
-### 在网页中选择 conda 环境（推荐）
-
-1. 启动后端后，点击网页顶部的“Python 环境”。
-2. 从自动发现的环境中选择；也可粘贴环境中 `python.exe`（macOS / Linux 为 `python` 或 `python3`）的完整路径。
-3. 点击“检查依赖”查看 Python 版本及 torch、torchvision、timm、numpy、scipy、Pillow 的导入结果。
-4. 点击“应用此环境”。检查全部通过后立即用于后续预测与校准，不必重启后端；依赖缺失时保留当前环境。
-
-选择结果保存到**项目目录中的 `.env.python.local.json`**，重启后继续使用。该文件及临时写入文件均被 `.gitignore` 的 `.env*` 规则排除，不提交 GitHub。个人路径不会写入源码。若之前使用了 `.env.local.bat`，网页保存的选择优先于它；删除 `.env.python.local.json` 并重启后端可恢复自动选择。
-
-切换后需要重新选择模型。进行中的预测或校准不会被中断。安装新环境后可点击“重新扫描”；自动发现覆盖 conda 环境注册表、常见用户安装目录、项目 `.venv`、已激活环境与 PATH。未发现的安装可手动填写路径。
-
-### 自动选择及兼容配置
-
-未在网页保存选择时，后端按以下顺序选择可用的解释器文件：
+后端启动时会按以下顺序自动查找 Python：
 
 1. 环境变量 `LP_PREDICT_PYTHON`（优先，旁路服务继承 后端.mjs 的环境变量）；
-2. 项目内的 `.venv` 虚拟环境；
-3. 已激活的 conda 环境（`CONDA_PREFIX`）；
-4. 自动发现的 conda 环境；
-5. PATH 中的 `python3`、`python`。
+2. 系统 PATH 中的 `python`、`py`。
 
 如需指定其他 conda 环境，可在 `启动后端.bat` 的 `run_backend` 前添加：
 
-    set "LP_PREDICT_PYTHON=%CONDA_PREFIX%\python.exe"
-
-也可在启动后端之前设置此环境变量；Windows 启动脚本支持被 Git 忽略的 `.env.local.bat`。网页保存的环境选择优先于启动变量，普通 `.env` 文件不会自动加载。
+    set "LP_PREDICT_PYTHON=C:\path\to\your\python.exe"
 
 如果模型预测按钮提示 Python 环境不可用，请检查上述路径与依赖是否完整。
 
@@ -161,23 +125,6 @@ lp-mode-web-simulator/
 - 模型输入和 Pearson / SSIM 仍使用独立的灰度强度数组，Jet 仅影响网页与 PNG 的显示配色。
 
 该模型与参考 MATLAB 脚本中的 prime_mode_cal、compute_lpmodes 和 synthesize_mode_field 计算思路一致。
-
-## MATLAB 一致性验证
-
-项目保留 `validation/matlab_reference.m` 参考脚本，生成的 PNG 和 JSON 不随仓库发布。运行前需自行提供 `compute_lpmodes`、`synthesize_mode_field`、`crop_nearfield_adaptive`、`normalize_image` 及其依赖，将它们加入 MATLAB 路径，或通过 `LP_MATLAB_REFERENCE_DIR` 指定函数目录。网页运行不依赖 MATLAB。
-
-原开发版本记录的默认参数验证结果（本次文件整理未重新运行 MATLAB）：
-
-- V 数：17.7732327747。
-- MATLAB 与网页后端均检测到 70 个空间模式，标签和顺序一致。
-- 强度质心一致：MATLAB 的 (318, 302) 为 1 基坐标，对应网页的 (317, 301) 0 基坐标。
-- 95% 能量半径：47.5078940808788 像素，两端一致。
-- 裁剪半宽：54 像素，两端一致。
-- 裁剪比例：0.18，两端一致。
-- 裁剪后、缩放前的 108 × 108 灰度图逐像素 100% 一致。
-- 缩放到 224 × 224 后相关系数为 0.999979977371，平均绝对误差为 0.154436 灰度级，全部像素误差不超过 1 灰度级。
-
-最后不超过 1 灰度级的差异来自 MATLAB imresize 与 JavaScript 对 uint8 双线性插值的整数舍入实现差异，不影响物理光场、能量裁剪或光斑结构。
 
 ## 本地运行
 
@@ -201,8 +148,10 @@ lp-mode-web-simulator/
 
 HTML 会连接本地后端并载入完整仿真界面。在后端窗口输入 `q`、`quit` 或 `exit`
 并按回车，即可同时关闭网页服务与预测旁路服务；关闭窗口或按 Ctrl+C 也可以停止服务。
+如果终端被直接关闭或意外崩溃，启动器会保留本次子进程记录，并在下次启动时仅清理经过 PID
+创建时间或项目命令行验证的遗留进程，同时移除失效的 Vinext 锁文件，避免端口占用。
 
-网页与 LP 物理仿真使用 JavaScript / Node.js，模型预测及光纤组合校准由 Python Worker 完成。
+此启动方式完全使用 JavaScript/Node.js，没有移植到 Python。
 
 ### 兼容启动方式（Windows）
 
@@ -272,6 +221,10 @@ HTML 会连接本地后端并载入完整仿真界面。在后端窗口输入 `q
 
 点击页面右上角“仿真设置”打开专门设置界面。
 
+### 界面风格
+
+可在设置顶部切换“光学实验室”“厕所大便风”“Hello Kitty 可爱少女风”“鸡你太美恶搞版”和“淡蓝清新风”。主题选择会立即作用于整个页面并保存在浏览器中，只改变网页外观，不影响仿真参数、光斑结果或模型预测。
+
 ### 自适应能量裁剪
 
 默认启用，与 MATLAB 的 crop_nearfield_adaptive 流程对应：
@@ -319,12 +272,4 @@ HTML 会连接本地后端并载入完整仿真界面。在后端窗口输入 `q
 
 ## 与数据集脚本的区别
 
-本网页提供单张光斑仿真、模态预测，以及用于自定义光纤组合的 50 组裁剪校准与统一裁剪设置；不导出批量训练数据集或 CSV 训练标签。
-
-## GitHub 文件范围
-
-保留网页源码、LP 物理模型、双分支模态分解网络、Python 推理服务、5 个训练好的 `.pth` 权重，以及安装和启动配置。首次使用请运行 `pnpm install`，在用于预测的 Python 环境中运行 `python -m pip install -r requirements.txt`，然后启动后端。
-
-不包含依赖目录、构建产物、缓存、日志、本地虚拟环境、已保存的光纤组合、验证生成图像和 JSON，以及个人环境路径。新增的模型文件和 `labels.csv` 默认忽略；当前随仓库提供的 5 个权重已明确允许提交。`.openai/hosting.json` 仅保留构建所需的空绑定配置，不含账户标识或凭据。
-
-运行环境选择逻辑的测试：`node --test scripts/python-environments.test.mjs`。
+本网页只进行单张光斑仿真，不包含批量样本、校准采样、统一裁剪、CSV 标签或近远场数据集生成。流程固定为“光纤参数 → 模态参数 → 归一化 → 单张光斑”。

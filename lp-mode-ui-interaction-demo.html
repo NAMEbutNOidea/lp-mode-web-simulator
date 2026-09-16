@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="少模光纤分析工具前端交互优化演示">
+  <title>少模光纤分析 · 交互优化演示</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172433;
+      --ink-soft: #52687b;
+      --muted: #738496;
+      --bg: #eef4f7;
+      --panel: rgba(255, 255, 255, .94);
+      --panel-soft: #f6fafb;
+      --line: rgba(68, 98, 122, .17);
+      --line-strong: rgba(68, 98, 122, .27);
+      --cyan: #0e8794;
+      --cyan-deep: #086b76;
+      --cyan-soft: rgba(14, 135, 148, .1);
+      --amber: #b66a16;
+      --amber-soft: rgba(182, 106, 22, .1);
+      --green: #16865b;
+      --shadow: 0 13px 34px rgba(35, 61, 82, .08);
+      --shadow-lift: 0 22px 54px rgba(35, 61, 82, .16);
+      --ease: cubic-bezier(.2, .75, .25, 1);
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--bg); scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 50% -20%, #fff 0, #edf5f8 42%, var(--bg) 75%),
+        linear-gradient(rgba(51, 86, 117, .042) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(51, 86, 117, .042) 1px, transparent 1px);
+      background-size: auto, 34px 34px, 34px 34px;
+      font: 15px/1.55 Inter, "Segoe UI", "Microsoft YaHei", sans-serif;
+    }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, [tabindex]:focus-visible { outline: 3px solid rgba(14, 135, 148, .26); outline-offset: 3px; }
+    math { color: inherit; font-family: "Cambria Math", "STIX Two Math", math; font-size: 1.08em; }
+    .inline-math { display: inline-block; vertical-align: -.13em; white-space: nowrap; }
+    .formula math { font-size: 18px; }
+    .mode-row math, .bar-pair math, .error-column math { font-size: 12px; }
+    .bar-pair small math, .error-column span math { font-size: 10px; }
+    .metric math, th math, .chart-legend-row math, .chart-tooltip math { font-size: 1em; }
+
+    .shell { width: min(1540px, calc(100% - 32px)); margin: 0 auto; padding-bottom: 42px; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      min-height: 72px;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(244, 249, 251, .82);
+      backdrop-filter: blur(18px);
+    }
+    .brand-mark { width: 38px; height: 38px; display: grid; place-items: center; position: relative; flex: 0 0 auto; border: 1px solid rgba(14, 135, 148, .4); border-radius: 50%; background: rgba(255,255,255,.7); box-shadow: inset 0 0 18px rgba(14,135,148,.1), 0 7px 20px rgba(35,61,82,.08); }
+    .brand-mark::before, .brand-mark::after { content: ""; position: absolute; border: 1px solid rgba(14,135,148,.27); border-radius: 50%; }
+    .brand-mark::before { inset: 7px; }
+    .brand-mark::after { inset: 15px; background: var(--cyan); box-shadow: 0 0 9px rgba(14,135,148,.6); }
+    .eyebrow { margin: 0; color: var(--cyan); font-size: 12px; font-weight: 800; letter-spacing: .15em; }
+    h1 { margin: 1px 0 0; font-size: 21px; letter-spacing: .02em; }
+    .live-pill { margin-left: auto; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-soft); background: rgba(255,255,255,.72); font-size: 12px; }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 5px rgba(22,134,91,.09); }
+
+    .workflow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; margin: 14px 0 10px; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.77); box-shadow: 0 8px 24px rgba(35,61,82,.05); }
+    .workflow-step { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; border: 1px solid transparent; border-radius: 8px; color: #7b8a99; background: rgba(237,243,246,.55); font-size: 13px; transition: color .25s, background .25s, transform .25s var(--ease); }
+    .workflow-step span { width: 23px; height: 23px; display: grid; place-items: center; border: 1px solid currentColor; border-radius: 50%; font: 700 11px ui-monospace, monospace; }
+    .workflow-step.done { color: var(--cyan-deep); background: var(--cyan-soft); }
+    .workflow-step.current { border-color: rgba(14,135,148,.27); box-shadow: inset 0 -3px var(--cyan); }
+
+    .workspace { display: grid; grid-template-columns: minmax(250px, .78fr) minmax(420px, 1.4fr) minmax(280px, .92fr); gap: 11px; align-items: stretch; }
+    .panel {
+      position: relative;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: linear-gradient(150deg, rgba(255,255,255,.98), rgba(247,250,252,.98));
+      box-shadow: var(--shadow), inset 0 1px rgba(255,255,255,.95);
+      transform: translateZ(0);
+    }
+    .lift-panel { transition: transform .28s var(--ease), box-shadow .28s var(--ease), border-color .28s; }
+    .lift-panel:hover, .lift-panel:focus-within {
+      z-index: 8;
+      transform: translateY(-4px) scale(1.014);
+      border-color: rgba(14,135,148,.34);
+      box-shadow: var(--shadow-lift), 0 0 0 1px rgba(14,135,148,.05);
+    }
+    .panel-head { display: flex; align-items: center; gap: 10px; padding: 15px 16px 12px; border-bottom: 1px solid var(--line); }
+    .step-badge { width: 27px; height: 27px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 8px; color: #fff; background: linear-gradient(135deg, #24a5b0, var(--cyan)); font: 800 12px ui-monospace, monospace; box-shadow: 0 6px 15px rgba(14,135,148,.2); }
+    .panel-head h2 { margin: 0; font-size: 15px; }
+    .panel-head small { display: block; color: var(--muted); font-size: 11px; }
+    .panel-body { padding: 14px 16px 16px; }
+
+    .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .field { display: block; color: var(--ink-soft); font-size: 12px; }
+    .field span { display: block; margin-bottom: 5px; }
+    .input-shell { display: flex; align-items: center; overflow: hidden; border: 1px solid var(--line-strong); border-radius: 8px; background: #fff; transition: border-color .2s, box-shadow .2s; }
+    .input-shell:focus-within { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-soft); }
+    .input-shell input { width: 100%; min-width: 0; border: 0; outline: 0; padding: 8px; color: var(--ink); background: transparent; }
+    .input-shell small { padding-right: 8px; color: var(--muted); }
+    .formula { margin: 11px 0; padding: 10px 12px; border: 1px solid rgba(182,106,22,.18); border-radius: 8px; color: var(--ink-soft); background: var(--amber-soft); font-family: "Cambria Math", serif; text-align: center; }
+    .action { width: 100%; min-height: 39px; border: 1px solid var(--cyan); border-radius: 8px; color: #fff; background: linear-gradient(135deg, #23a8b3, var(--cyan)); box-shadow: 0 8px 22px rgba(14,135,148,.18); font-weight: 750; cursor: pointer; transition: transform .2s, box-shadow .2s; }
+    .action:hover { transform: translateY(-1px); box-shadow: 0 11px 28px rgba(14,135,148,.26); }
+    .micro-status { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--green); font-size: 12px; }
+
+    .mode-toolbar { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; }
+    .mode-toolbar strong { font-size: 13px; }
+    .chip { padding: 5px 9px; border: 1px solid var(--line); border-radius: 999px; color: var(--cyan-deep); background: var(--cyan-soft); font-size: 11px; }
+    .mode-toolbar .chip:first-of-type { margin-left: auto; }
+    .mode-table { overflow: hidden; border: 1px solid var(--line); border-radius: 9px; }
+    .mode-row { display: grid; grid-template-columns: 76px 1fr 1fr 42px; align-items: center; min-height: 43px; padding: 0 10px; border-bottom: 1px solid var(--line); transition: background .2s, transform .2s; }
+    .mode-row:last-child { border-bottom: 0; }
+    .mode-row:hover { background: rgba(14,135,148,.052); transform: translateX(3px); }
+    .mode-row strong { font: 750 12px ui-monospace, monospace; }
+    .mini-track { height: 5px; margin-right: 12px; overflow: hidden; border-radius: 99px; background: #dce8ed; }
+    .mini-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #30aeba, var(--cyan)); }
+    .phase { color: var(--amber); font: 11px ui-monospace, monospace; }
+    .toggle { width: 30px; height: 18px; padding: 2px; border: 0; border-radius: 99px; background: rgba(14,135,148,.21); cursor: pointer; }
+    .toggle::after { content: ""; display: block; width: 14px; height: 14px; margin-left: 12px; border-radius: 50%; background: var(--cyan); transition: margin .2s, background .2s; }
+    .toggle.off { background: #dce4e8; }
+    .toggle.off::after { margin-left: 0; background: #8fa0ad; }
+
+    .preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .spot-card { margin: 0; padding: 7px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-soft); }
+    .spot-card canvas { display: block; width: 100%; aspect-ratio: 1; border: 1px solid #20384e; border-radius: 7px; background: #06111c; }
+    .spot-card figcaption { display: flex; justify-content: space-between; margin-top: 6px; color: var(--ink-soft); font-size: 11px; }
+    .status-line { display: flex; align-items: center; gap: 9px; margin-top: 10px; padding: 9px 10px; border: 1px solid rgba(22,134,91,.17); border-radius: 8px; color: #4f6578; background: rgba(22,134,91,.055); font-size: 12px; }
+    .status-line i { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+
+    .results { margin-top: 12px; overflow: visible; }
+    .results-head { display: flex; align-items: flex-end; gap: 14px; padding: 18px 20px 13px; }
+    .results-head h2 { margin: 2px 0 0; font-size: 19px; }
+    .results-head p { margin: 0; color: var(--muted); font-size: 12px; }
+    .result-badge { margin-left: auto; padding: 6px 10px; border-radius: 999px; color: var(--green); background: rgba(22,134,91,.08); font-size: 12px; }
+    .tabs { display: flex; gap: 6px; padding: 0 20px 13px; overflow-x: auto; scrollbar-width: thin; }
+    .tab { white-space: nowrap; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink-soft); background: #fff; cursor: pointer; transition: color .2s, border-color .2s, background .2s, transform .2s; }
+    .tab:hover { transform: translateY(-1px); border-color: rgba(14,135,148,.36); }
+    .tab[aria-selected="true"] { color: var(--cyan-deep); border-color: rgba(14,135,148,.38); background: var(--cyan-soft); box-shadow: inset 0 -2px var(--cyan); }
+
+    .deck-wrap { position: relative; min-height: 388px; padding: 0 20px 20px; overflow: hidden; }
+    .deck-back { position: absolute; inset: 12px 38px 22px; border: 1px solid var(--line); border-radius: 13px; background: #e8f0f3; transform: translateY(9px) scale(.985); }
+    .result-card { position: absolute; inset: 0 20px 20px; visibility: hidden; opacity: 0; pointer-events: none; transform: translateX(28px) scale(.975) rotateY(-2deg); transform-origin: center right; border: 1px solid var(--line-strong); border-radius: 13px; background: #fff; box-shadow: 0 16px 34px rgba(35,61,82,.1); transition: opacity .34s var(--ease), transform .34s var(--ease), visibility 0s .34s; }
+    .result-card.active { position: relative; inset: auto; visibility: visible; opacity: 1; pointer-events: auto; transform: translateX(0) scale(1) rotateY(0); transition-delay: 0s; }
+    .result-card.leaving-left { visibility: visible; opacity: 0; transform: translateX(-32px) scale(.975) rotateY(2deg); }
+    .card-content { min-height: 350px; padding: 16px; }
+    .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .metric { padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-soft); transition: transform .22s, background .22s; }
+    .metric:hover { transform: translateY(-3px); background: #fff; }
+    .metric span { display: block; color: var(--muted); font-size: 11px; }
+    .metric strong { display: block; margin-top: 3px; font-size: 19px; font-family: ui-monospace, monospace; }
+    .metric em { color: var(--green); font-size: 10px; font-style: normal; }
+    .overview-grid { display: grid; grid-template-columns: 1.3fr .7fr; gap: 10px; margin-top: 10px; }
+    .chart-box, .note-box { position: relative; min-height: 205px; padding: 13px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-soft); }
+    .chart-box h3, .note-box h3, .visual-grid h3 { margin: 0 0 10px; font-size: 13px; }
+    .bars { height: 150px; display: flex; align-items: flex-end; gap: 8px; padding: 12px 8px 22px; border-left: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong); background: repeating-linear-gradient(to top, transparent 0 29px, rgba(68,98,122,.08) 30px); }
+    .bar-pair { position: relative; display: flex; align-items: flex-end; justify-content: center; flex: 1; height: 100%; gap: 2px; border-radius: 4px 4px 0 0; cursor: crosshair; transition: background .18s; }
+    .bar-pair:hover, .bar-pair:focus-visible { background: rgba(14,135,148,.08); }
+    .bar-pair i { width: min(12px, 42%); border-radius: 3px 3px 0 0; background: var(--cyan); animation: grow .75s var(--ease) both; transform-origin: bottom; transition: filter .18s, transform .18s; }
+    .bar-pair i:last-of-type { background: #ef9a3d; }
+    .bar-pair:hover i { filter: saturate(1.18) brightness(1.03); }
+    .bar-pair small { position: absolute; top: calc(100% + 4px); font: 9px ui-monospace, monospace; color: var(--muted); }
+    .chart-legend-row { display: flex; align-items: center; justify-content: flex-end; gap: 13px; margin-top: 9px; color: var(--muted); font-size: 10px; }
+    .chart-legend-row span { display: flex; align-items: center; gap: 5px; }
+    .chart-legend-row i { width: 8px; height: 8px; border-radius: 2px; background: var(--cyan); }
+    .chart-legend-row span:last-child i { background: #ef9a3d; }
+    .chart-tooltip { position: absolute; z-index: 20; min-width: 176px; padding: 10px 11px; border: 1px solid rgba(14,135,148,.3); border-radius: 9px; color: #eaf7f8; background: rgba(18,35,49,.95); box-shadow: 0 12px 30px rgba(13,31,43,.25); backdrop-filter: blur(10px); pointer-events: none; opacity: 0; transform: translate(-50%, calc(-100% - 12px)) scale(.96); transition: opacity .14s, transform .14s var(--ease); }
+    .chart-tooltip.show { opacity: 1; transform: translate(-50%, calc(-100% - 12px)) scale(1); }
+    .chart-tooltip strong { display: block; margin-bottom: 6px; color: #fff; font-size: 12px; }
+    .tooltip-row { display: grid; grid-template-columns: 1fr auto; gap: 15px; color: #b8ccd5; font: 11px ui-monospace, monospace; line-height: 1.7; }
+    .tooltip-row b { color: #fff; font-weight: 700; }
+    .tooltip-row.true b { color: #55d7df; }
+    .tooltip-row.pred b { color: #ffbc70; }
+    .tooltip-row.error { margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,.12); }
+    .finding { display: flex; gap: 9px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+    .finding:last-child { border-bottom: 0; }
+    .finding b { width: 22px; height: 22px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 7px; color: var(--cyan-deep); background: var(--cyan-soft); font-size: 11px; }
+    .finding strong { display: block; font-size: 12px; }
+    .finding span { color: var(--muted); font-size: 11px; }
+
+    .visual-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+    .visual-figure { margin: 0; padding: 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-soft); }
+    .visual-figure canvas { display: block; width: 100%; max-height: 240px; aspect-ratio: 1; border-radius: 7px; background: #06111c; }
+    .visual-figure figcaption { margin-top: 6px; color: var(--ink-soft); font-size: 12px; }
+    .visual-figure small { display: block; color: var(--muted); }
+
+    .coef-grid { display: grid; grid-template-columns: 1fr .8fr; gap: 10px; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 9px; }
+    table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: right; font: 12px ui-monospace, monospace; }
+    th { color: var(--ink-soft); background: #edf3f6; }
+    th:first-child, td:first-child { text-align: left; }
+    tbody tr:hover { background: rgba(14,135,148,.052); }
+    tbody tr:last-child td { border-bottom: 0; }
+    .error-chart { height: 170px; display: flex; align-items: flex-end; gap: 8px; padding: 12px 8px 28px; border-left: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong); background: repeating-linear-gradient(to top, transparent 0 31px, rgba(68,98,122,.08) 32px); }
+    .error-column { position: relative; display: flex; align-items: flex-end; justify-content: center; flex: 1; height: 100%; }
+    .error-column i { width: min(24px, 66%); height: var(--height); min-height: 3px; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, #efb26d, var(--amber)); box-shadow: 0 5px 12px rgba(182,106,22,.12); transition: filter .18s, transform .18s; transform-origin: bottom; }
+    .error-column:hover i { filter: saturate(1.22); transform: scaleX(1.08); }
+    .error-column span { position: absolute; top: calc(100% + 5px); color: var(--muted); font: 9px ui-monospace, monospace; }
+    .error-column em { position: absolute; bottom: calc(var(--height) + 4px); color: var(--amber); font: 9px ui-monospace, monospace; font-style: normal; }
+
+    .suggestions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+    .suggestion { padding: 13px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-soft); }
+    .suggestion header { display: flex; align-items: center; gap: 9px; }
+    .suggestion b { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; color: var(--cyan-deep); background: var(--cyan-soft); }
+    .suggestion strong { font-size: 13px; }
+    .suggestion p { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
+
+    .deck-controls { display: flex; align-items: center; gap: 8px; padding: 0 20px 17px; }
+    .deck-controls button { min-width: 38px; min-height: 34px; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--cyan-deep); background: #fff; cursor: pointer; }
+    .deck-controls button:hover { background: var(--cyan-soft); }
+    .deck-dots { flex: 1; display: flex; align-items: center; justify-content: center; gap: 3px; }
+    .deck-controls .deck-dot { position: relative; min-width: 28px; width: 28px; min-height: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: transparent; }
+    .deck-controls .deck-dot::after { content: ""; position: absolute; inset: 9px; border: 1px solid #9bb0bc; border-radius: 50%; background: #fff; transition: inset .22s var(--ease), background .22s, border-color .22s; }
+    .deck-controls .deck-dot:hover { background: transparent; }
+    .deck-controls .deck-dot:hover::after { border-color: var(--cyan); }
+    .deck-controls .deck-dot.active::after { inset: 7px; border-color: var(--cyan); background: var(--cyan); box-shadow: 0 0 0 4px rgba(14,135,148,.1); }
+    .deck-counter { min-width: 42px; color: var(--muted); font: 11px ui-monospace, monospace; text-align: right; }
+    .hint { margin: 0 20px 17px; color: var(--muted); font-size: 11px; text-align: right; }
+
+    @keyframes grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+    @media (max-width: 1050px) {
+      .workspace { grid-template-columns: 1fr 1.45fr; }
+      .workspace > :last-child { grid-column: 1 / -1; }
+      .preview-grid { grid-template-columns: 160px 160px; }
+      .metric-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 720px) {
+      .shell { width: min(100% - 20px, 1540px); }
+      .topbar { position: relative; }
+      .eyebrow, .live-pill { display: none; }
+      .workflow { grid-template-columns: repeat(5, minmax(98px, 1fr)); overflow-x: auto; }
+      .workspace { grid-template-columns: 1fr; }
+      .workspace > :last-child { grid-column: auto; }
+      .lift-panel:hover, .lift-panel:focus-within { transform: translateY(-2px) scale(1.006); }
+      .overview-grid, .coef-grid { grid-template-columns: 1fr; }
+      .visual-grid { grid-template-columns: 1fr; }
+      .visual-figure canvas { max-height: 270px; object-fit: contain; }
+      .suggestions { grid-template-columns: 1fr; }
+      .deck-wrap { min-height: 580px; padding-inline: 10px; }
+      .result-card { inset-inline: 10px; }
+      .tabs, .results-head, .deck-controls { padding-inline: 10px; }
+      .preview-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition-duration: .01ms !important; }
+      .lift-panel:hover, .lift-panel:focus-within { transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand-mark" aria-hidden="true"></div>
+      <div><p class="eyebrow">少模光纤分析 · 交互演示</p><h1>少模光纤单光斑仿真器</h1></div>
+      <div class="live-pill"><span class="live-dot"></span>分析服务在线</div>
+    </header>
+
+    <nav class="workflow" aria-label="分析流程">
+      <div class="workflow-step done"><span>1</span>光纤参数</div>
+      <div class="workflow-step done"><span>2</span>模态设置</div>
+      <div class="workflow-step done"><span>3</span>光斑仿真</div>
+      <div class="workflow-step done"><span>4</span>模型预测</div>
+      <div class="workflow-step done current"><span>5</span>可视化分析</div>
+    </nav>
+
+    <section class="workspace" aria-label="悬停放大效果演示">
+      <article class="panel lift-panel" tabindex="0">
+        <header class="panel-head"><span class="step-badge">01</span><div><h2>光纤参数</h2><small>悬停或键盘聚焦查看微放大</small></div></header>
+        <div class="panel-body">
+          <div class="field-grid">
+            <label class="field"><span>纤芯半径</span><span class="input-shell"><input value="10.0" aria-label="纤芯半径"><small>μm</small></span></label>
+            <label class="field"><span>数值孔径</span><span class="input-shell"><input value="0.179" aria-label="数值孔径"><small>NA</small></span></label>
+            <label class="field"><span>波长</span><span class="input-shell"><input value="0.6328" aria-label="波长"><small>μm</small></span></label>
+            <label class="field"><span>计算区域</span><span class="input-shell"><input value="100" aria-label="计算区域"><small>μm</small></span></label>
+          </div>
+          <div class="formula"><math display="block" aria-label="V 等于二派 a 乘数值孔径除以 lambda，结果为 17.78"><mi>V</mi><mo>=</mo><mfrac><mrow><mn>2</mn><mi>π</mi><mi>a</mi><mo>·</mo><mi mathvariant="normal">NA</mi></mrow><mi>λ</mi></mfrac><mo>=</mo><mn>17.78</mn></math></div>
+          <button class="action" type="button">重新检测支持模式</button>
+          <div class="micro-status"><span class="live-dot"></span>已检测 12 个空间模式分量</div>
+        </div>
+      </article>
+
+      <article class="panel lift-panel" tabindex="0">
+        <header class="panel-head"><span class="step-badge">02</span><div><h2>模态权重与相位</h2><small>行悬停提供局部反馈，避免整页跳动</small></div></header>
+        <div class="panel-body">
+          <div class="mode-toolbar"><strong>当前模式</strong><span class="chip">12 个已启用</span><span class="chip"><math class="inline-math" aria-label="权重平方和等于一"><mrow><mo>∑</mo><msubsup><mi>w</mi><mi>i</mi><mn>2</mn></msubsup><mo>=</mo><mn>1</mn></mrow></math></span></div>
+          <div class="mode-table" id="modeTable"></div>
+        </div>
+      </article>
+
+      <article class="panel lift-panel" tabindex="0">
+        <header class="panel-head"><span class="step-badge">03</span><div><h2>仿真预览</h2><small>关键结果保持在首屏内</small></div></header>
+        <div class="panel-body">
+          <div class="preview-grid">
+            <figure class="spot-card"><canvas class="spot" width="190" height="190" data-seed="1"></canvas><figcaption><b>近场</b><span>224 × 224 像素</span></figcaption></figure>
+            <figure class="spot-card"><canvas class="spot" width="190" height="190" data-seed="2"></canvas><figcaption><b>远场</b><span>224 × 224 像素</span></figcaption></figure>
+          </div>
+          <button class="action" id="analyze" type="button" style="margin-top:10px">重新播放分析完成动效</button>
+          <div class="status-line"><i></i><span id="statusText">分析完成 · 推理耗时 0.84 s</span></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel results" id="results" aria-labelledby="resultTitle">
+      <header class="results-head">
+        <div><p class="eyebrow">模态分解 · 分析结果</p><h2 id="resultTitle">模态预测与误差分析</h2><p>用卡片切换替代连续堆叠，降低分析完成后的页面长度与认知负担。</p></div>
+        <span class="result-badge">✓ 分析完成</span>
+      </header>
+
+      <div class="tabs" role="tablist" aria-label="分析结果视图">
+        <button class="tab" role="tab" aria-selected="true" data-index="0">总览</button>
+        <button class="tab" role="tab" aria-selected="false" data-index="1">光斑与残差</button>
+        <button class="tab" role="tab" aria-selected="false" data-index="2">模态系数</button>
+        <button class="tab" role="tab" aria-selected="false" data-index="3">界面优化建议</button>
+      </div>
+
+      <div class="deck-wrap" id="deck" aria-live="polite">
+        <div class="deck-back" aria-hidden="true"></div>
+        <article class="result-card active" role="tabpanel">
+          <div class="card-content">
+            <div class="metric-grid">
+              <div class="metric"><span>近场相关系数 <math class="inline-math"><msub><mi>r</mi><mtext>近场</mtext></msub></math></span><strong>0.9928</strong><em>↑ 0.6%</em></div>
+              <div class="metric"><span>近场结构相似度 <math class="inline-math"><msub><mi mathvariant="normal">SSIM</mi><mtext>近场</mtext></msub></math></span><strong>0.9784</strong><em>优秀</em></div>
+              <div class="metric"><span>远场相关系数 <math class="inline-math"><msub><mi>r</mi><mtext>远场</mtext></msub></math></span><strong>0.9871</strong><em>↑ 0.3%</em></div>
+              <div class="metric"><span>相位平均绝对误差 <math class="inline-math"><msub><mi mathvariant="normal">MAE</mi><mi>φ</mi></msub></math></span><strong>0.0426</strong><em>弧度</em></div>
+            </div>
+            <div class="overview-grid">
+              <section class="chart-box" id="weightChart"><h3>模式权重 · <math class="inline-math" aria-label="真实权重 w i 与预测权重 w i 帽"><msub><mi>w</mi><mi>i</mi></msub><mtext> 与 </mtext><msub><mover><mi>w</mi><mo>^</mo></mover><mi>i</mi></msub></math></h3><div class="bars" id="overviewBars"></div><div class="chart-legend-row"><span><i></i>真实值 <math class="inline-math"><msub><mi>w</mi><mi>i</mi></msub></math></span><span><i></i>预测值 <math class="inline-math"><msub><mover><mi>w</mi><mo>^</mo></mover><mi>i</mi></msub></math></span></div><div class="chart-tooltip" id="chartTooltip" role="tooltip"></div></section>
+              <aside class="note-box"><h3>本次分析要点</h3><div class="finding"><b>01</b><div><strong>重构一致性较高</strong><span>近场与远场相关系数均超过 0.98</span></div></div><div class="finding"><b>02</b><div><strong><math class="inline-math"><msub><mi mathvariant="normal">LP</mi><mn>11</mn></msub></math> 误差略高</strong><span>建议优先检查该模式的相位预测</span></div></div><div class="finding"><b>03</b><div><strong>模型状态稳定</strong><span>权重归一化偏差保持在 0.3% 内</span></div></div></aside>
+            </div>
+          </div>
+        </article>
+
+        <article class="result-card" role="tabpanel" hidden>
+          <div class="card-content">
+            <div class="visual-grid">
+              <figure class="visual-figure"><canvas class="spot" width="260" height="260" data-seed="3"></canvas><figcaption>近场真值 <math class="inline-math"><msub><mi>I</mi><mtext>真</mtext></msub></math><small>能量分数 <math class="inline-math"><mi>η</mi><mo>=</mo><mn>95</mn><mo>%</mo></math></small></figcaption></figure>
+              <figure class="visual-figure"><canvas class="spot" width="260" height="260" data-seed="4"></canvas><figcaption>近场重构 <math class="inline-math"><mover><mi>I</mi><mo>^</mo></mover></math><small>结构相似度 <math class="inline-math"><mi mathvariant="normal">SSIM</mi><mo>=</mo><mn>0.9784</mn></math></small></figcaption></figure>
+              <figure class="visual-figure"><canvas class="residual" width="260" height="260"></canvas><figcaption>绝对残差 <math class="inline-math"><mrow><mo>|</mo><mi>I</mi><mo>−</mo><mover><mi>I</mi><mo>^</mo></mover><mo>|</mo></mrow></math><small>平均残差 <math class="inline-math"><mover><mi>e</mi><mo>¯</mo></mover><mo>=</mo><mn>0.0182</mn></math></small></figcaption></figure>
+            </div>
+          </div>
+        </article>
+
+        <article class="result-card" role="tabpanel" hidden>
+          <div class="card-content">
+            <div class="coef-grid">
+              <div class="table-wrap"><table><thead><tr><th>模式</th><th>真值 <math class="inline-math"><msub><mi>w</mi><mi>i</mi></msub></math></th><th>预测值 <math class="inline-math"><msub><mover><mi>w</mi><mo>^</mo></mover><mi>i</mi></msub></math></th><th>绝对误差 <math class="inline-math"><msub><mi>ε</mi><mi>i</mi></msub></math></th></tr></thead><tbody><tr><td><math><msub><mi mathvariant="normal">LP</mi><mn>01</mn></msub></math></td><td>0.4821</td><td>0.4768</td><td>0.0053</td></tr><tr><td><math><msubsup><mi mathvariant="normal">LP</mi><mn>11</mn><mi>a</mi></msubsup></math></td><td>0.3912</td><td>0.4021</td><td>0.0109</td></tr><tr><td><math><msubsup><mi mathvariant="normal">LP</mi><mn>11</mn><mi>b</mi></msubsup></math></td><td>0.3514</td><td>0.3476</td><td>0.0038</td></tr><tr><td><math><msubsup><mi mathvariant="normal">LP</mi><mn>21</mn><mi>a</mi></msubsup></math></td><td>0.2872</td><td>0.2819</td><td>0.0053</td></tr><tr><td><math><msubsup><mi mathvariant="normal">LP</mi><mn>21</mn><mi>b</mi></msubsup></math></td><td>0.2147</td><td>0.2193</td><td>0.0046</td></tr><tr><td><math><msub><mi mathvariant="normal">LP</mi><mn>02</mn></msub></math></td><td>0.1798</td><td>0.1820</td><td>0.0022</td></tr></tbody></table></div>
+              <section class="chart-box"><h3>各模态相位误差 <math class="inline-math"><msub><mrow><mi>Δ</mi><mi>φ</mi></mrow><mi>i</mi></msub></math> · 柱状分布</h3><div class="error-chart"><div class="error-column" style="--height:29%"><i></i><em>.018</em><span><math><msub><mi mathvariant="normal">LP</mi><mn>01</mn></msub></math></span></div><div class="error-column" style="--height:100%"><i></i><em>.062</em><span><math><msubsup><mi mathvariant="normal">LP</mi><mn>11</mn><mi>a</mi></msubsup></math></span></div><div class="error-column" style="--height:58%"><i></i><em>.036</em><span><math><msubsup><mi mathvariant="normal">LP</mi><mn>11</mn><mi>b</mi></msubsup></math></span></div><div class="error-column" style="--height:79%"><i></i><em>.049</em><span><math><msubsup><mi mathvariant="normal">LP</mi><mn>21</mn><mi>a</mi></msubsup></math></span></div><div class="error-column" style="--height:44%"><i></i><em>.027</em><span><math><msubsup><mi mathvariant="normal">LP</mi><mn>21</mn><mi>b</mi></msubsup></math></span></div><div class="error-column" style="--height:35%"><i></i><em>.022</em><span><math><msub><mi mathvariant="normal">LP</mi><mn>02</mn></msub></math></span></div></div></section>
+            </div>
+          </div>
+        </article>
+
+        <article class="result-card" role="tabpanel" hidden>
+          <div class="card-content">
+            <div class="suggestions">
+              <article class="suggestion"><header><b>01</b><strong>分析结果分层</strong></header><p>默认先展示结论和关键指标，残差、系数表和诊断细节放进卡片页，减少一次性信息量。</p></article>
+              <article class="suggestion"><header><b>02</b><strong>保持页面位置</strong></header><p>分析完成后平滑定位到结果区，同时保留顶部流程条，让用户随时知道当前处于第 5 步。</p></article>
+              <article class="suggestion"><header><b>03</b><strong>反馈分级</strong></header><p>处理中显示进度，成功使用绿色状态，参数失配使用琥珀色，并把修复动作紧邻提示放置。</p></article>
+              <article class="suggestion"><header><b>04</b><strong>动效保持克制</strong></header><p>板块放大建议控制在 1.01–1.02，位移 3–5 像素；卡片切换约 300 毫秒，并支持减少动态效果。</p></article>
+              <article class="suggestion"><header><b>05</b><strong>表格快速比较</strong></header><p>真值与预测值靠近摆放，误差单独着色；固定表头并为异常模式提供轻量高亮。</p></article>
+              <article class="suggestion"><header><b>06</b><strong>键盘与触屏可用</strong></header><p>卡片页签支持左右方向键；触屏设备降低放大比例，避免卡片碰撞和误触。</p></article>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div class="deck-controls">
+        <button type="button" id="prev" aria-label="上一张结果卡片">←</button>
+        <button type="button" id="next" aria-label="下一张结果卡片">→</button>
+        <div class="deck-dots" aria-label="结果卡片位置">
+          <button type="button" class="deck-dot active" data-index="0" aria-label="第 1 张：总览" aria-current="true"></button>
+          <button type="button" class="deck-dot" data-index="1" aria-label="第 2 张：光斑与残差"></button>
+          <button type="button" class="deck-dot" data-index="2" aria-label="第 3 张：模态系数"></button>
+          <button type="button" class="deck-dot" data-index="3" aria-label="第 4 张：界面优化建议"></button>
+        </div>
+        <span class="deck-counter" id="counter">01 / 04</span>
+      </div>
+      <p class="hint">点击页签或使用 ← → 方向键切换结果卡片</p>
+    </section>
+  </main>
+
+  <script>
+    function lpMath(l, m, variant = "") {
+      const script = variant
+        ? `<msubsup><mi mathvariant="normal">LP</mi><mn>${l}${m}</mn><mi>${variant}</mi></msubsup>`
+        : `<msub><mi mathvariant="normal">LP</mi><mn>${l}${m}</mn></msub>`;
+      return `<math class="inline-math">${script}</math>`;
+    }
+
+    function signedNumberMath(value) {
+      const sign = value < 0 ? "−" : "+";
+      return `<mo>${sign}</mo><mn>${Math.abs(value).toFixed(2)}</mn>`;
+    }
+
+    const modes = [
+      { l: 0, m: 1, variant: "", value: 86, phase: 0 },
+      { l: 1, m: 1, variant: "a", value: 71, phase: .48 },
+      { l: 1, m: 1, variant: "b", value: 64, phase: -.32 },
+      { l: 2, m: 1, variant: "a", value: 52, phase: 1.14 },
+      { l: 2, m: 1, variant: "b", value: 44, phase: -.86 },
+      { l: 0, m: 2, variant: "", value: 36, phase: .21 }
+    ];
+    const modeTable = document.getElementById("modeTable");
+    modes.forEach((mode) => {
+      const plainName = `LP ${mode.l}${mode.m}${mode.variant}`;
+      const row = document.createElement("div");
+      row.className = "mode-row";
+      row.innerHTML = `<strong>${lpMath(mode.l, mode.m, mode.variant)}</strong><div class="mini-track"><i style="width:${mode.value}%"></i></div><span class="phase"><math class="inline-math"><mi>φ</mi><mo>=</mo>${signedNumberMath(mode.phase)}<mspace width=".25em"></mspace><mi mathvariant="normal">rad</mi></math></span><button class="toggle" type="button" aria-label="切换 ${plainName}"></button>`;
+      row.querySelector("button").addEventListener("click", (event) => event.currentTarget.classList.toggle("off"));
+      modeTable.appendChild(row);
+    });
+
+    function drawSpot(canvas, seed) {
+      const ctx = canvas.getContext("2d");
+      const size = canvas.width;
+      const image = ctx.createImageData(size, size);
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const nx = (x - size / 2) / (size / 2);
+          const ny = (y - size / 2) / (size / 2);
+          const r = Math.hypot(nx, ny);
+          const a = Math.atan2(ny, nx);
+          const wave = Math.cos((seed + 1) * a + r * (7 + seed)) * .28;
+          const lobe = Math.cos(a * (seed + 2)) * .18;
+          const intensity = Math.max(0, Math.exp(-r * r * (2.8 + seed * .12)) * (1 + wave + lobe));
+          const t = Math.min(1, intensity);
+          const i = (y * size + x) * 4;
+          image.data[i] = Math.round(255 * Math.max(0, Math.min(1, 1.5 * t - .45)));
+          image.data[i + 1] = Math.round(255 * Math.max(0, Math.min(1, 1.7 * t)));
+          image.data[i + 2] = Math.round(255 * Math.max(0, Math.min(1, .65 + 1.3 * t)));
+          image.data[i + 3] = 255;
+        }
+      }
+      ctx.putImageData(image, 0, 0);
+    }
+
+    function drawResidual(canvas) {
+      const ctx = canvas.getContext("2d");
+      const size = canvas.width;
+      const image = ctx.createImageData(size, size);
+      for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+        const nx = (x - size / 2) / (size / 2), ny = (y - size / 2) / (size / 2);
+        const r = Math.hypot(nx, ny), a = Math.atan2(ny, nx);
+        const t = Math.max(0, Math.exp(-r * r * 3.4) * Math.abs(Math.sin(a * 5 + r * 11)) * .72);
+        const i = (y * size + x) * 4;
+        image.data[i] = Math.round(255 * t);
+        image.data[i + 1] = Math.round(165 * Math.max(0, t - .14));
+        image.data[i + 2] = Math.round(255 * (1 - t) * .66);
+        image.data[i + 3] = 255;
+      }
+      ctx.putImageData(image, 0, 0);
+    }
+
+    document.querySelectorAll("canvas.spot").forEach((canvas) => drawSpot(canvas, Number(canvas.dataset.seed)));
+    document.querySelectorAll("canvas.residual").forEach(drawResidual);
+
+    const values = [
+      { l: 0, m: 1, variant: "", trueValue: .4821, predValue: .4768 },
+      { l: 1, m: 1, variant: "a", trueValue: .3912, predValue: .4021 },
+      { l: 1, m: 1, variant: "b", trueValue: .3514, predValue: .3476 },
+      { l: 2, m: 1, variant: "a", trueValue: .2872, predValue: .2819 },
+      { l: 2, m: 1, variant: "b", trueValue: .2147, predValue: .2193 },
+      { l: 0, m: 2, variant: "", trueValue: .1798, predValue: .1820 },
+      { l: 3, m: 1, variant: "a", trueValue: .1282, predValue: .1217 },
+      { l: 3, m: 1, variant: "b", trueValue: .0965, predValue: .1011 }
+    ];
+    const bars = document.getElementById("overviewBars");
+    const weightChart = document.getElementById("weightChart");
+    const chartTooltip = document.getElementById("chartTooltip");
+    const maxWeight = Math.max(...values.flatMap((item) => [item.trueValue, item.predValue])) * 1.08;
+
+    function fillTooltip(item) {
+      const error = Math.abs(item.trueValue - item.predValue);
+      chartTooltip.innerHTML = `<strong>${lpMath(item.l, item.m, item.variant)}</strong><div class="tooltip-row true"><span>真实值 <math class="inline-math"><msub><mi>w</mi><mi>i</mi></msub></math></span><b>${item.trueValue.toFixed(4)}</b></div><div class="tooltip-row pred"><span>预测值 <math class="inline-math"><msub><mover><mi>w</mi><mo>^</mo></mover><mi>i</mi></msub></math></span><b>${item.predValue.toFixed(4)}</b></div><div class="tooltip-row error"><span>绝对误差 <math class="inline-math"><msub><mi>ε</mi><mi>i</mi></msub></math></span><b>${error.toFixed(4)}</b></div>`;
+    }
+
+    function positionTooltip(clientX, clientY) {
+      const rect = weightChart.getBoundingClientRect();
+      const x = Math.max(96, Math.min(rect.width - 96, clientX - rect.left));
+      const y = Math.max(116, Math.min(rect.height - 16, clientY - rect.top));
+      chartTooltip.style.left = `${x}px`;
+      chartTooltip.style.top = `${y}px`;
+    }
+
+    values.forEach((item, index) => {
+      const el = document.createElement("div");
+      el.className = "bar-pair";
+      el.tabIndex = 0;
+      const plainName = `LP ${item.l}${item.m}${item.variant}`;
+      el.setAttribute("aria-label", `${plainName}，真实值 ${item.trueValue.toFixed(4)}，预测值 ${item.predValue.toFixed(4)}，绝对误差 ${Math.abs(item.trueValue - item.predValue).toFixed(4)}`);
+      const trueHeight = item.trueValue / maxWeight * 100;
+      const predHeight = item.predValue / maxWeight * 100;
+      el.innerHTML = `<i style="height:${trueHeight}%;animation-delay:${index * 45}ms"></i><i style="height:${predHeight}%;animation-delay:${index * 45 + 30}ms"></i><small>${lpMath(item.l, item.m, item.variant)}</small>`;
+      el.addEventListener("pointerenter", (event) => {
+        fillTooltip(item);
+        positionTooltip(event.clientX, event.clientY);
+        chartTooltip.classList.add("show");
+      });
+      el.addEventListener("pointermove", (event) => positionTooltip(event.clientX, event.clientY));
+      el.addEventListener("pointerleave", () => chartTooltip.classList.remove("show"));
+      el.addEventListener("focus", () => {
+        fillTooltip(item);
+        const barRect = el.getBoundingClientRect();
+        positionTooltip(barRect.left + barRect.width / 2, barRect.top + 22);
+        chartTooltip.classList.add("show");
+      });
+      el.addEventListener("blur", () => chartTooltip.classList.remove("show"));
+      bars.appendChild(el);
+    });
+
+    const tabs = [...document.querySelectorAll(".tab")];
+    const cards = [...document.querySelectorAll(".result-card")];
+    const deckDots = [...document.querySelectorAll(".deck-dot")];
+    const counter = document.getElementById("counter");
+    let activeIndex = 0;
+    function showCard(nextIndex) {
+      nextIndex = (nextIndex + cards.length) % cards.length;
+      if (nextIndex === activeIndex) return;
+      const oldCard = cards[activeIndex];
+      oldCard.classList.add("leaving-left");
+      oldCard.classList.remove("active");
+      tabs[activeIndex].setAttribute("aria-selected", "false");
+      activeIndex = nextIndex;
+      const newCard = cards[activeIndex];
+      newCard.removeAttribute("hidden");
+      requestAnimationFrame(() => newCard.classList.add("active"));
+      tabs[activeIndex].setAttribute("aria-selected", "true");
+      deckDots.forEach((dot, index) => {
+        dot.classList.toggle("active", index === activeIndex);
+        if (index === activeIndex) dot.setAttribute("aria-current", "true");
+        else dot.removeAttribute("aria-current");
+      });
+      counter.textContent = `${String(activeIndex + 1).padStart(2, "0")} / ${String(cards.length).padStart(2, "0")}`;
+      setTimeout(() => {
+        oldCard.classList.remove("leaving-left");
+        oldCard.setAttribute("hidden", "");
+      }, 380);
+    }
+    tabs.forEach((tab) => tab.addEventListener("click", () => showCard(Number(tab.dataset.index))));
+    deckDots.forEach((dot) => dot.addEventListener("click", () => showCard(Number(dot.dataset.index))));
+    document.getElementById("prev").addEventListener("click", () => showCard(activeIndex - 1));
+    document.getElementById("next").addEventListener("click", () => showCard(activeIndex + 1));
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowLeft") showCard(activeIndex - 1);
+      if (event.key === "ArrowRight") showCard(activeIndex + 1);
+    });
+
+    const analyze = document.getElementById("analyze");
+    const statusText = document.getElementById("statusText");
+    analyze.addEventListener("click", () => {
+      analyze.disabled = true;
+      analyze.textContent = "正在分析…";
+      statusText.textContent = "模型推理与误差计算中";
+      document.getElementById("results").style.opacity = ".48";
+      setTimeout(() => {
+        analyze.disabled = false;
+        analyze.textContent = "重新播放分析完成动效";
+        statusText.textContent = "分析完成 · 推理耗时 0.84 s";
+        const results = document.getElementById("results");
+        results.style.opacity = "1";
+        results.animate([
+          { transform: "translateY(15px)", opacity: .5 },
+          { transform: "translateY(0)", opacity: 1 }
+        ], { duration: 440, easing: "cubic-bezier(.2,.75,.25,1)" });
+        results.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 900);
+    });
+  </script>
+</body>
+</html>

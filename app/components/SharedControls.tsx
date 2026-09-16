@@ -1,6 +1,8 @@
 "use client";
 
-export function NumericField({ label, value, unit, min, max, step, onChange }: { label: string; value: number; unit: string; min: number; max: number; step: number; onChange: (value: number) => void }) {
+import type { ReactNode } from "react";
+
+export function NumericField({ label, value, unit, min, max, step, onChange }: { label: ReactNode; value: number; unit: string; min: number; max: number; step: number; onChange: (value: number) => void }) {
   return <label className="numeric-field"><span>{label}</span><div className="input-shell"><input type="number" value={value} min={min} max={max} step={step} onChange={(e) => onChange(Number(e.target.value))}/><small>{unit}</small></div></label>;
 }
 

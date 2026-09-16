@@ -35,6 +35,5 @@
     "vite": "8.0.13",
     "wrangler": "4.92.0"
   },
-  "type": "module",
-  "description": "Local LP-mode fiber simulation, modal decomposition, and conda environment selection."
+  "type": "module"
 }

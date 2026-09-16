@@ -17,9 +17,7 @@ function formatDuration(milliseconds: number | null | undefined) {
   return `${minutes} 分 ${String(seconds % 60).padStart(2, "0")} 秒`;
 }
 
-export default function FiberProfilePanel({ fiber, display, disabled, onApply, onStatus, onBusyChange, onConfigurePython, environmentRevision }: {
-  onConfigurePython: () => void;
-  environmentRevision: number;
+export default function FiberProfilePanel({ fiber, display, disabled, onApply, onStatus, onBusyChange }: {
   fiber: FiberParams;
   display: DisplaySettings;
   disabled: boolean;
@@ -32,6 +30,7 @@ export default function FiberProfilePanel({ fiber, display, disabled, onApply, o
   const [profilesDir, setProfilesDir] = useState("");
   const [loading, setLoading] = useState(true);
   const [calibrating, setCalibrating] = useState(false);
+  const [profilesOpen, setProfilesOpen] = useState(false);
   const [progressJob, setProgressJob] = useState<FiberProfileJob | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +46,14 @@ export default function FiberProfilePanel({ fiber, display, disabled, onApply, o
       .catch((caught) => { if (!cancelled) setError(caught instanceof Error ? caught.message : "读取组合失败"); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [environmentRevision]);
+  }, []);
+
+  useEffect(() => {
+    if (!profilesOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setProfilesOpen(false); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [profilesOpen]);
 
   async function refresh() {
     setLoading(true);
@@ -91,8 +97,7 @@ export default function FiberProfilePanel({ fiber, display, disabled, onApply, o
 
   return <section className="panel fiber-profile-panel">
     <div className="profile-heading">
-      <div><p className="section-kicker">FIBER PRESETS</p><h2>自定义光纤组合</h2></div>
-      <button type="button" className="agent-refresh" onClick={refresh} disabled={loading || calibrating} aria-label="刷新组合列表">↻</button>
+      <div><p className="section-kicker">光纤组合 · 预设</p><h2>自定义光纤组合</h2></div>
     </div>
     <p className="panel-copy">保存前自动检测模式，并用 50 组随机光斑预校准统一裁剪比例。</p>
     <label className="profile-name-field"><span>组合名称</span><input value={name} maxLength={80} placeholder={`例如：${fiber.coreRadius.toFixed(1)}μm · NA ${fiber.na}`} onChange={(event) => setName(event.target.value)}/></label>
@@ -102,18 +107,26 @@ export default function FiberProfilePanel({ fiber, display, disabled, onApply, o
       <div className="profile-progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progressJob?.progress ?? 0)}><span style={{ width: `${progressJob?.progress ?? 0}%` }}/></div>
       <div className="profile-progress-meta"><span>光斑 {progressJob?.completedSamples ?? 0}/{progressJob?.totalSamples ?? 50}</span><span>已用 {formatDuration(progressJob?.elapsedMs)}</span><span>预计剩余 {formatDuration(progressJob?.estimatedRemainingMs)}</span></div>
     </div>}
-    {error && <div className="profile-error" role="alert">{error}{/python|torch|timm|numpy|scipy|pillow/i.test(error) && <button type="button" className="python-environment-link" onClick={onConfigurePython}>选择 Python / conda 环境</button>}</div>}
-    <div className="profile-list-heading"><strong>已保存组合</strong><span>{profiles.length}</span></div>
-    {loading && <p className="profile-empty">正在读取组合…</p>}
-    {!loading && profiles.length === 0 && <p className="profile-empty">尚未保存组合。</p>}
-    {profiles.length > 0 && <div className="profile-list">
-      {profiles.map((profile) => <button type="button" className="profile-item" key={profile.id} onClick={() => onApply(profile)} disabled={disabled || calibrating}>
-        <span className="profile-item-title"><strong>{profile.name}</strong><em>{profile.modeCount} 模式</em></span>
-        <span>a {profile.fiber.coreRadius.toFixed(2)} μm · NA {profile.fiber.na.toFixed(3)} · λ {(profile.fiber.wavelength * 1000).toFixed(1)} nm</span>
-        <span>V {profile.vNumber.toFixed(4)} · {profile.familyCount} 个模式族</span>
-        <span>裁剪半宽 {profile.calibration.nearfieldCropRatio.toFixed(5)} / {profile.calibration.farfieldCropRatio.toFixed(5)} · {formatDate(profile.createdAt)}</span>
-      </button>)}
+    {error && <p className="profile-error">{error}</p>}
+    <button type="button" className="profile-library-button" onClick={() => setProfilesOpen(true)} disabled={calibrating}><span className="profile-library-icon" aria-hidden="true">▤</span><span><strong>查看已保存组合</strong><small>{loading ? "正在读取组合…" : profiles.length ? `已有 ${profiles.length} 个组合` : "尚未保存组合"}</small></span><em>{profiles.length}</em></button>
+    {profilesOpen && <div className="settings-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setProfilesOpen(false); }}>
+      <section className="settings-dialog profile-library-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-library-title">
+        <header className="settings-header"><div><p className="section-kicker">光纤组合 · 预设库</p><h2 id="profile-library-title">已保存组合</h2><p>选择一个组合即可载入光纤参数、支持模式和预校准裁剪比例。</p></div><div className="profile-dialog-actions"><button type="button" className="agent-refresh" onClick={refresh} disabled={loading || calibrating} aria-label="刷新组合列表">↻</button><button type="button" className="close-button" aria-label="关闭已保存组合" onClick={() => setProfilesOpen(false)}>×</button></div></header>
+        <div className="profile-library-body">
+          {error && <p className="profile-error">{error}</p>}
+          {loading && <p className="profile-empty">正在读取组合…</p>}
+          {!loading && profiles.length === 0 && <p className="profile-empty">尚未保存组合。</p>}
+          {profiles.length > 0 && <div className="profile-list profile-list-dialog">
+            {profiles.map((profile) => <button type="button" className="profile-item" key={profile.id} onClick={() => { onApply(profile); setProfilesOpen(false); }} disabled={disabled || calibrating}>
+              <span className="profile-item-title"><strong>{profile.name}</strong><em>{profile.modeCount} 模式</em></span>
+              <span>半径 {profile.fiber.coreRadius.toFixed(2)} 微米 · 数值孔径 {profile.fiber.na.toFixed(3)} · 波长 {(profile.fiber.wavelength * 1000).toFixed(1)} 纳米</span>
+              <span>V {profile.vNumber.toFixed(4)} · {profile.familyCount} 个模式族</span>
+              <span>裁剪半宽 {profile.calibration.nearfieldCropRatio.toFixed(5)} / {profile.calibration.farfieldCropRatio.toFixed(5)} · {formatDate(profile.createdAt)}</span>
+            </button>)}
+          </div>}
+        </div>
+        <footer className="settings-footer profile-library-footer">{profilesDir ? <span className="profile-directory" title={profilesDir}>保存目录：{profilesDir}</span> : <span/>}<button type="button" className="settings-done-button" onClick={() => setProfilesOpen(false)}>关闭</button></footer>
+      </section>
     </div>}
-    {profilesDir && <p className="profile-directory" title={profilesDir}>保存目录：{profilesDir}</p>}
   </section>;
 }
