@@ -9,8 +9,8 @@ const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
 
 const { d1, r2 } = hostingConfig;
 
-// macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
-const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === 'seatbelt';
+// 部分沙箱环境下 FSEvents 不可用，退回轮询以保证 HMR 正常。
+const needPolling = process.env.CODEX_SANDBOX === 'seatbelt';
 
 const localBindingConfig = {
   main: 'vinext/server/app-router-entry',
@@ -47,10 +47,13 @@ export default defineConfig(async () => {
   return {
     css: { postcss: { plugins: [tailwindcss()] } },
     server: {
+      // Quick Tunnel hostnames change on every start. Allow Cloudflare's
+      // generated subdomains without opening the dev server to every host.
+      allowedHosts: ['.trycloudflare.com'],
       // models/ 存放大型模型权重，复制/粘贴时不参与文件监视，避免 EBUSY 崩溃
       watch: {
         ignored: ["**/models/**", "**/validation/**", "**/.wrangler/**", "**/.next/**"],
-        ...(isCodexSeatbeltSandbox ? { useFsEvents: false, usePolling: true } : {}),
+        ...(needPolling ? { useFsEvents: false, usePolling: true } : {}),
       },
     },
     plugins: [

@@ -1,7 +1,7 @@
 // 模态预测旁路服务。
 // vinext dev 的路由处理器运行在 workerd 沙箱中，无法访问真实文件系统或启动
 // Python 子进程；本服务以普通 Node.js 运行在 127.0.0.1:3099，承担模型扫描与
-// 推理任务。由 后端.mjs 在启动 pnpm dev 的同时启动。
+// 推理任务。由 backend.mjs（pnpm backend）在启动网页服务的同时一并启动。
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -15,8 +15,13 @@ const FIBER_PROFILES_DIR = process.env.LP_FIBER_PROFILES_DIR ? resolve(process.e
 const WORKER_PATH = join(PROJECT_DIR, "scripts", "predict_worker.py");
 const MODEL_EXTENSIONS = new Set([".pth", ".pt", ".ckpt"]);
 
+// 按优先级探测 Python：显式环境变量 → 当前已激活的 conda 环境 → PATH 中的解释器
 const PYTHON_CANDIDATES = [
   process.env.LP_PREDICT_PYTHON,
+  process.env.CONDA_PREFIX
+    ? join(process.env.CONDA_PREFIX, process.platform === "win32" ? "python.exe" : "bin/python")
+    : null,
+  "python3",
   "python",
   "py",
 ].filter(Boolean);
@@ -46,7 +51,10 @@ function findPython() {
 }
 
 function pythonHint() {
-  return "未找到可用的 Python 环境（需要 torch / torchvision / timm / numpy / Pillow）。请在 启动后端.bat 中设置 LP_PREDICT_PYTHON（例如指向 conda 环境的 python.exe），或在 README 中查看配置说明。";
+  return "未找到可用的 Python 环境（需要 torch / torchvision / timm / numpy / Pillow / scipy）。"
+    + "请把环境变量 LP_PREDICT_PYTHON 指向该环境的 python 可执行文件，"
+    + "或先 conda activate 目标环境再启动后端，也可用 启动后端.bat \"C:\\path\\to\\python.exe\" 传入路径。"
+    + "详见 README「模态预测的 Python 环境」。";
 }
 
 function runPython(job, timeoutMs = 300000, onProgress) {
@@ -155,6 +163,7 @@ async function handleModels() {
       mtime: stats.mtimeMs,
       numModes: info?.numModes ?? null,
       backbone: info?.backbone ?? null,
+      inputChannels: info?.inputChannels ?? null,
       modeLabels: Array.isArray(info?.modeLabels) ? info.modeLabels : null,
       error: info?.ok === false ? String(info.error) : null,
     };

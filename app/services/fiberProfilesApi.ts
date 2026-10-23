@@ -1,7 +1,7 @@
 import type { DisplaySettings, FiberParams, LPMode } from "../lpPhysics";
 
 export type FiberCalibration = {
-  samples: 50;
+  samples: number;
   percentile: number;
   safety: number;
   seed: number;

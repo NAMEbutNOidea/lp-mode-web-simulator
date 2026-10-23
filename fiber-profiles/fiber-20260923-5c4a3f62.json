@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "id": "fiber-20260923-5c4a3f62",
+  "name": "6 模式 (a=5, NA=0.1)",
+  "createdAt": "2026-09-23T00:00:00.000Z",
+  "fiber": {
+    "coreRadius": 5,
+    "na": 0.1,
+    "wavelength": 0.6328,
+    "zoneSize": 100,
+    "maxL": 10,
+    "maxM": 10
+  },
+  "vNumber": 4.964590160540128,
+  "modeCount": 6,
+  "familyCount": 4,
+  "modeLabels": [
+    "LP01e",
+    "LP02e",
+    "LP11e",
+    "LP11o",
+    "LP21e",
+    "LP21o"
+  ],
+  "modes": [
+    {
+      "id": "LP01e",
+      "l": 0,
+      "m": 1,
+      "parity": "e",
+      "u": 1.9915081352288193,
+      "w": 4.547642335260028,
+      "cutoff": 0
+    },
+    {
+      "id": "LP02e",
+      "l": 0,
+      "m": 2,
+      "parity": "e",
+      "u": 4.419169966659737,
+      "w": 2.262320107302332,
+      "cutoff": 3.831705970256774
+    },
+    {
+      "id": "LP11e",
+      "l": 1,
+      "m": 1,
+      "parity": "e",
+      "u": 3.1481781899087284,
+      "w": 3.838766670001559,
+      "cutoff": 2.4048255604359223
+    },
+    {
+      "id": "LP11o",
+      "l": 1,
+      "m": 1,
+      "parity": "o",
+      "u": 3.1481781899087284,
+      "w": 3.838766670001559,
+      "cutoff": 2.4048255604359223
+    },
+    {
+      "id": "LP21e",
+      "l": 2,
+      "m": 1,
+      "parity": "e",
+      "u": 4.171630502284325,
+      "w": 2.6915895702247936,
+      "cutoff": 3.831705970256774
+    },
+    {
+      "id": "LP21o",
+      "l": 2,
+      "m": 1,
+      "parity": "o",
+      "u": 4.171630502284325,
+      "w": 2.6915895702247936,
+      "cutoff": 3.831705970256774
+    }
+  ],
+  "display": {
+    "cropMode": "fixed",
+    "autoCrop": true,
+    "nearfieldCropRatio": 0.07975000000000002,
+    "farfieldCropRatio": 0.035520833333333335,
+    "energyFraction": 0.95,
+    "paddingFactor": 1.12,
+    "gamma": 0.7,
+    "gridSize": 600,
+    "fftRatio": 4,
+    "outputSize": 224
+  },
+  "calibration": {
+    "samples": 100,
+    "percentile": 95,
+    "safety": 1.1,
+    "seed": 20260923,
+    "randomEngine": "matlab-mt19937",
+    "weightRange": [
+      0.45,
+      1
+    ],
+    "phaseRange": [
+      -3.141592653589793,
+      3.141592653589793
+    ],
+    "energyFraction": 0.95,
+    "paddingFactor": 1.12,
+    "gridSize": 600,
+    "fftRatio": 4,
+    "fftSize": 2400,
+    "nearSampleFullWidthRatios": [],
+    "farSampleFullWidthRatios": [],
+    "nearPercentileFullWidthRatio": 0.14500000000000002,
+    "farPercentileFullWidthRatio": 0.06458333333333333,
+    "nearfieldCropRatio": 0.07975000000000002,
+    "farfieldCropRatio": 0.035520833333333335,
+    "nearCropPixels": 96,
+    "farCropPixels": 171,
+    "nearViewMagnification": 6.25,
+    "farViewMagnification": 14.035087719298245,
+    "elapsedMs": 0,
+    "source": "dataset_metadata.mat"
+  }
+}

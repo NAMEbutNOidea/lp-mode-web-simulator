@@ -158,7 +158,7 @@ export default function Home() {
       if (nearCanvasRef.current) drawPixels(nearCanvasRef.current, result.pixels, display.outputSize);
       if (farCanvasRef.current) drawPixels(farCanvasRef.current, result.farPixels, display.outputSize);
       setTotalPower(result.totalPower); setCrop(result.crop); setFarCrop(result.farCrop); setIsSimulated(true); setPrediction(null);
-      setMessage(display.autoCrop ? `仿真完成：近场与远场均按 ${(display.energyFraction * 100).toFixed(1)}% 能量自适应裁剪` : "仿真完成：已输出完整近场与远场视场");
+      setMessage(display.autoCrop ? `仿真完成：近场与远场均按 ${(display.energyFraction * 100).toFixed(5)}% 能量自适应裁剪` : "仿真完成：已输出完整近场与远场视场");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "光斑仿真失败");
     } finally {

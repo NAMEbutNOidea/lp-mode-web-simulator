@@ -11,9 +11,9 @@ lp-mode-web-simulator 的模态分解推理 Worker。
    "far": [...], "size": 224}
       -> 加载模型并对近场/远场图像对做模态分解预测。
 
-需要 Python 环境包含 torch / torchvision / timm / numpy / Pillow。
-示例（conda）：
-  <path-to-python> scripts\\predict_worker.py
+需要 Python 环境包含 torch / torchvision / timm / numpy / Pillow / scipy。
+通常由 prediction-server.mjs 自动调用，无需手动执行；单独调试时：
+  python scripts/predict_worker.py < job.json
 """
 
 import csv
@@ -278,12 +278,52 @@ def load_mode_labels(model_path, num_modes):
     return [f"mode_{index:02d}" for index in range(1, num_modes + 1)]
 
 
+ST_STEM_KEYS = ("conv_stem.weight", "inc.weight", "inc.d.weight", "conv1.weight")
+
+
+def detect_input_channels(state_dict):
+    """从第一层卷积推断模型训练时的输入通道数。"""
+    for key, value in state_dict.items():
+        if torch.is_tensor(value) and value.dim() == 4 and key.endswith(ST_STEM_KEYS):
+            return int(value.shape[1])
+    return 3
+
+
+def adapt_input_channels(state_dict, target_channels=3):
+    """把输入通道不足 target 的模型第一层卷积核补零到 target 通道。
+
+    网页固定用 [近场, 远场, 零通道] 三通道 + ImageNet 归一化喂模型，第三通道
+    归一化后是常数、不携带信息。若模型来自 in_chans=2 的训练脚本，第一层卷积
+    只有 2 个输入通道，strict load 会直接失败（并被误报为“无法识别骨干网络”）。
+    这里给缺失通道补零权重：零权重乘以任意输入恒为 0，因此补零后的三通道模型
+    与原双通道模型输出完全一致。
+    """
+    adapted = dict(state_dict)
+    padded_keys = []
+    for key, value in state_dict.items():
+        if not torch.is_tensor(value) or value.dim() != 4:
+            continue
+        if value.shape[1] >= target_channels or not key.endswith(ST_STEM_KEYS):
+            continue
+        zeros = torch.zeros(
+            value.shape[0],
+            target_channels - value.shape[1],
+            *value.shape[2:],
+            dtype=value.dtype,
+        )
+        adapted[key] = torch.cat([value, zeros], dim=1).contiguous()
+        padded_keys.append(key)
+    return adapted, padded_keys
+
+
 def load_state(model_path):
     checkpoint = torch.load(model_path, map_location="cpu", weights_only=True)
     state_dict = extract_state_dict(checkpoint)
+    input_channels = detect_input_channels(state_dict)
+    state_dict, _ = adapt_input_channels(state_dict)
     num_modes = infer_num_modes(state_dict)
     backbone = detect_backbone(state_dict, num_modes)
-    return state_dict, num_modes, backbone
+    return state_dict, num_modes, backbone, input_channels
 
 
 def build_model(state_dict, num_modes, backbone, device):
@@ -298,12 +338,13 @@ def scan_files(files):
     for file_path in files:
         entry = {"path": file_path}
         try:
-            state_dict, num_modes, backbone = load_state(file_path)
+            state_dict, num_modes, backbone, input_channels = load_state(file_path)
             entry.update(
                 {
                     "ok": True,
                     "numModes": num_modes,
                     "backbone": backbone,
+                    "inputChannels": input_channels,
                     "modeLabels": load_mode_labels(file_path, num_modes),
                 }
             )
@@ -323,7 +364,7 @@ def predict(job):
     device_name = "cpu" if job.get("device") == "cpu" else ("cuda" if torch.cuda.is_available() else "cpu")
 
     started = time.time()
-    state_dict, num_modes, backbone = load_state(model_path)
+    state_dict, num_modes, backbone, input_channels = load_state(model_path)
     device = torch.device(device_name)
     model = build_model(state_dict, num_modes, backbone, device)
 
@@ -345,6 +386,7 @@ def predict(job):
         "ok": True,
         "numModes": num_modes,
         "backbone": backbone,
+        "inputChannels": input_channels,
         "modeLabels": load_mode_labels(model_path, num_modes),
         "weights": [float(value) for value in pred_weights[0].cpu().numpy()],
         "phases": [float(value) for value in pred_phases[0].cpu().numpy()],

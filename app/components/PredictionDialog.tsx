@@ -39,6 +39,20 @@ function ImageCard({ title, sub, size, data, mask, phase = false }: { title: Rea
   return <figure className="analysis-figure"><div className="analysis-canvas-frame"><canvas ref={ref} width={size} height={size} role="img" aria-labelledby={id}/></div><figcaption id={id}>{title}{sub && <small>{sub}</small>}</figcaption></figure>;
 }
 
+function ImageColorbar({ phase = false }: { phase?: boolean }) {
+  return <aside className="analysis-colorbar" aria-label={phase ? "相位色标：从负 π 到正 π" : "归一化值色标：从 0 到 1"}>
+    <span className="analysis-colorbar-title">{phase ? "相位" : "归一化值"}</span>
+    <div className="analysis-colorbar-scale">
+      <span className={`analysis-colorbar-ramp ${phase ? "phase" : "intensity"}`} aria-hidden="true"/>
+      <div className="analysis-colorbar-ticks" aria-hidden="true">
+        <span>{phase ? "+π" : "1"}</span>
+        <span>{phase ? "0" : "0.5"}</span>
+        <span>{phase ? "−π" : "0"}</span>
+      </div>
+    </div>
+  </aside>;
+}
+
 const views = ["总览", "光斑与残差", "相位分析", "模态系数"];
 
 function ResultDeck({ children }: { children: ReactNode[] }) {
@@ -108,19 +122,19 @@ function PredictionResults({ prediction }: { prediction: PredictionPayload }) {
         </dl><p>将指针移到柱状图上可查看真实值、预测值与误差。</p></aside></div>
       </div>,
       <div key="images">
-        <section className="analysis-section"><h3>近场 · 真值、重构与残差</h3><div className="analysis-image-grid">
+        <section className="analysis-section"><h3>近场 · 真值、重构与残差</h3><div className="analysis-image-layout"><div className="analysis-image-grid">
           <ImageCard title={<>近场真值 <Variable name="I"/></>} size={images.size} data={images.nearTrue}/>
           <ImageCard title={<>近场重构 <Variable name="I" hat/></>} sub={<>相关系数 {metrics.nearPearson.toFixed(4)} · 结构相似度 {metrics.nearSsim.toFixed(4)}</>} size={images.size} data={images.nearPred}/>
           <ImageCard title={<>近场绝对残差 <MathInline><mo>|</mo><mover accent="true"><mi>I</mi><mo>^</mo></mover><mo>−</mo><mi>I</mi><mo>|</mo></MathInline></>} size={images.size} data={images.nearResidual}/>
-        </div></section>
-        <section className="analysis-section"><h3>远场 · 真值、重构与残差</h3><div className="analysis-image-grid">
+        </div><ImageColorbar/></div></section>
+        <section className="analysis-section"><h3>远场 · 真值、重构与残差</h3><div className="analysis-image-layout"><div className="analysis-image-grid">
           <ImageCard title={<>远场真值 <Variable name="I"/></>} size={images.size} data={images.farTrue}/>
           <ImageCard title={<>远场重构 <Variable name="I" hat/></>} sub={<>相关系数 {metrics.farPearson.toFixed(4)} · 结构相似度 {metrics.farSsim.toFixed(4)}</>} size={images.size} data={images.farPred}/>
           <ImageCard title={<>远场绝对残差 <MathInline><mo>|</mo><mover accent="true"><mi>I</mi><mo>^</mo></mover><mo>−</mo><mi>I</mi><mo>|</mo></MathInline></>} size={images.size} data={images.farResidual}/>
-        </div></section>
+        </div><ImageColorbar/></div></section>
       </div>,
       <div key="phase">
-        <section className="analysis-section"><h3>相位图 · 光强 ≥ 1% 处显示，色相编码</h3><div className="analysis-image-grid phase-grid"><ImageCard title={<>真实相位 <Variable name="φ"/></>} size={images.size} data={images.phaseTrue} mask={images.phaseMask} phase/><ImageCard title={<>重构相位 <Variable name="φ" hat/></>} size={images.size} data={images.phasePred} mask={images.phaseMask} phase/></div></section>
+        <section className="analysis-section"><h3>相位图 · 光强 ≥ 1% 处显示，色相编码</h3><div className="analysis-image-layout phase-layout"><div className="analysis-image-grid phase-grid"><ImageCard title={<>真实相位 <Variable name="φ"/></>} size={images.size} data={images.phaseTrue} mask={images.phaseMask} phase/><ImageCard title={<>重构相位 <Variable name="φ" hat/></>} size={images.size} data={images.phasePred} mask={images.phaseMask} phase/></div><ImageColorbar phase/></div></section>
         <div className="prediction-chart-grid"><PredictionChart rows={rows} kind="phase"/><PredictionChart rows={rows} kind="phaseError"/></div>
         <p className="metric-note">相位误差按 2π 周期折回至 [−π, π)，平均绝对误差不包含首个参考模态。</p>
       </div>,

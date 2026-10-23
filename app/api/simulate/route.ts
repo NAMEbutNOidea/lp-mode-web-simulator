@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       cropMode: display?.cropMode === "fixed" ? "fixed" : "adaptive",
       nearfieldCropRatio: Number.isFinite(display?.nearfieldCropRatio) ? Math.max(0.001, Math.min(0.5, Number(display.nearfieldCropRatio))) : null,
       farfieldCropRatio: Number.isFinite(display?.farfieldCropRatio) ? Math.max(0.001, Math.min(0.5, Number(display.farfieldCropRatio))) : null,
-      energyFraction: Math.max(0.5, Math.min(0.999, display?.energyFraction ?? 0.95)),
+      energyFraction: Math.max(0.5, Math.min(0.9999999, display?.energyFraction ?? 0.95)),
       paddingFactor: Math.max(1, Math.min(2, display?.paddingFactor ?? 1.12)),
       gamma: Math.max(0.1, Math.min(2, display?.gamma ?? 0.7)),
       gridSize: Math.max(128, Math.min(600, Math.round(display?.gridSize ?? 600))),

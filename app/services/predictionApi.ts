@@ -7,6 +7,7 @@ export type ModelInfo = {
   mtime: number;
   numModes: number | null;
   backbone: string | null;
+  inputChannels: number | null;
   modeLabels: string[] | null;
   error: string | null;
 };

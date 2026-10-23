@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { DisplaySettings, FiberParams } from "../lpPhysics";
 import { requestFiberProfiles, saveFiberProfile, type FiberProfile, type FiberProfileJob } from "../services/fiberProfilesApi";
 
@@ -33,6 +34,10 @@ export default function FiberProfilePanel({ fiber, display, disabled, onApply, o
   const [profilesOpen, setProfilesOpen] = useState(false);
   const [progressJob, setProgressJob] = useState<FiberProfileJob | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const dialogRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,9 +55,24 @@ export default function FiberProfilePanel({ fiber, display, disabled, onApply, o
 
   useEffect(() => {
     if (!profilesOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setProfilesOpen(false); };
+    // 锁住背景滚动：遮罩是 fixed，页面若还能滚会让下层内容与弹窗产生相对位移
+    const root = document.documentElement;
+    root.classList.add("modal-open");
+    // preventScroll 很关键，否则聚焦动作会把页面滚到按钮处，看起来像“弹窗跳位”
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = requestAnimationFrame(() => dialogRef.current?.focus({ preventScroll: true }));
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      setProfilesOpen(false);
+    };
     window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
+    return () => {
+      cancelAnimationFrame(frame);
+      root.classList.remove("modal-open");
+      window.removeEventListener("keydown", closeOnEscape);
+      if (previouslyFocused && document.contains(previouslyFocused)) previouslyFocused.focus({ preventScroll: true });
+    };
   }, [profilesOpen]);
 
   async function refresh() {
@@ -109,8 +129,8 @@ export default function FiberProfilePanel({ fiber, display, disabled, onApply, o
     </div>}
     {error && <p className="profile-error">{error}</p>}
     <button type="button" className="profile-library-button" onClick={() => setProfilesOpen(true)} disabled={calibrating}><span className="profile-library-icon" aria-hidden="true">▤</span><span><strong>查看已保存组合</strong><small>{loading ? "正在读取组合…" : profiles.length ? `已有 ${profiles.length} 个组合` : "尚未保存组合"}</small></span><em>{profiles.length}</em></button>
-    {profilesOpen && <div className="settings-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setProfilesOpen(false); }}>
-      <section className="settings-dialog profile-library-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-library-title">
+    {mounted && profilesOpen && createPortal(<div className="settings-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setProfilesOpen(false); }}>
+      <section className="settings-dialog profile-library-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-library-title" tabIndex={-1} ref={dialogRef}>
         <header className="settings-header"><div><p className="section-kicker">光纤组合 · 预设库</p><h2 id="profile-library-title">已保存组合</h2><p>选择一个组合即可载入光纤参数、支持模式和预校准裁剪比例。</p></div><div className="profile-dialog-actions"><button type="button" className="agent-refresh" onClick={refresh} disabled={loading || calibrating} aria-label="刷新组合列表">↻</button><button type="button" className="close-button" aria-label="关闭已保存组合" onClick={() => setProfilesOpen(false)}>×</button></div></header>
         <div className="profile-library-body">
           {error && <p className="profile-error">{error}</p>}
@@ -127,6 +147,6 @@ export default function FiberProfilePanel({ fiber, display, disabled, onApply, o
         </div>
         <footer className="settings-footer profile-library-footer">{profilesDir ? <span className="profile-directory" title={profilesDir}>保存目录：{profilesDir}</span> : <span/>}<button type="button" className="settings-done-button" onClick={() => setProfilesOpen(false)}>关闭</button></footer>
       </section>
-    </div>}
+    </div>, document.body)}
   </section>;
 }

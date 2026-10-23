@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "id": "fiber-20260923-9b9998c3",
+  "name": "3 模式 (a=5, NA=0.1)",
+  "createdAt": "2026-09-23T00:00:00.000Z",
+  "fiber": {
+    "coreRadius": 5,
+    "na": 0.1,
+    "wavelength": 1.1328,
+    "zoneSize": 100,
+    "maxL": 10,
+    "maxM": 10
+  },
+  "vNumber": 2.7732985995672608,
+  "modeCount": 3,
+  "familyCount": 2,
+  "modeLabels": [
+    "LP01e",
+    "LP11e",
+    "LP11o"
+  ],
+  "modes": [
+    {
+      "id": "LP01e",
+      "l": 0,
+      "m": 1,
+      "parity": "e",
+      "u": 1.7289405245796972,
+      "w": 2.1683979765780568,
+      "cutoff": 0
+    },
+    {
+      "id": "LP11e",
+      "l": 1,
+      "m": 1,
+      "parity": "e",
+      "u": 2.623742539089859,
+      "w": 0.8984209541924263,
+      "cutoff": 2.4048255604359223
+    },
+    {
+      "id": "LP11o",
+      "l": 1,
+      "m": 1,
+      "parity": "o",
+      "u": 2.623742539089859,
+      "w": 0.8984209541924263,
+      "cutoff": 2.4048255604359223
+    }
+  ],
+  "display": {
+    "cropMode": "fixed",
+    "autoCrop": true,
+    "nearfieldCropRatio": 0.12650000000000003,
+    "farfieldCropRatio": 0.0213125,
+    "energyFraction": 0.95,
+    "paddingFactor": 1.12,
+    "gamma": 0.7,
+    "gridSize": 600,
+    "fftRatio": 4,
+    "outputSize": 224
+  },
+  "calibration": {
+    "samples": 100,
+    "percentile": 95,
+    "safety": 1.1,
+    "seed": 20260923,
+    "randomEngine": "matlab-mt19937",
+    "weightRange": [
+      0.45,
+      1
+    ],
+    "phaseRange": [
+      -3.141592653589793,
+      3.141592653589793
+    ],
+    "energyFraction": 0.95,
+    "paddingFactor": 1.12,
+    "gridSize": 600,
+    "fftRatio": 4,
+    "fftSize": 2400,
+    "nearSampleFullWidthRatios": [],
+    "farSampleFullWidthRatios": [],
+    "nearPercentileFullWidthRatio": 0.23000000000000004,
+    "farPercentileFullWidthRatio": 0.03875,
+    "nearfieldCropRatio": 0.12650000000000003,
+    "farfieldCropRatio": 0.0213125,
+    "nearCropPixels": 152,
+    "farCropPixels": 102,
+    "nearViewMagnification": 3.9473684210526314,
+    "farViewMagnification": 23.529411764705884,
+    "elapsedMs": 0,
+    "source": "dataset_metadata.mat"
+  }
+}

@@ -68,7 +68,7 @@ export default function ModelAgentPanel({ selected, onSelect, onStatus, simModeC
       <div className="agent-body">
         {loading && <div className="agent-loading">正在扫描模型文件…</div>}
         {error && <div className="agent-error">{error}</div>}
-        {data && !data.pythonOk && <div className="agent-warning">Python 环境不可用：{data.pythonError}<br/>请在 <code>启动后端.bat</code> 中设置 <code>LP_PREDICT_PYTHON</code> 指向包含 torch/timm 的 conda python。</div>}
+        {data && !data.pythonOk && <div className="agent-warning">Python 环境不可用：{data.pythonError}<br/>请把 <code>LP_PREDICT_PYTHON</code> 指向含 torch / timm 的解释器，或先激活 conda 环境再启动后端，详见 README。</div>}
         {data && count === 0 && !loading && (
           <div className="agent-empty">
             将训练好的模型文件（<code>.pth</code> / <code>.pt</code> / <code>.ckpt</code>）复制到：<br/><code>{data.modelsDir}</code><br/>然后点击右上角 ↻ 刷新。
@@ -83,7 +83,7 @@ export default function ModelAgentPanel({ selected, onSelect, onStatus, simModeC
                 <span className="agent-model-check">{active ? "✓" : ""}</span>
                 <span className="agent-model-info">
                   <strong>{model.name}</strong>
-                  <small>{model.numModes ? `${model.numModes} 个模式 · ${model.backbone} · ${model.sizeLabel}` : (model.error ?? "未识别")} · {formatTime(model.mtime)}</small>
+                  <small>{model.numModes ? `${model.numModes} 个模式 · ${model.backbone}${model.inputChannels ? ` · ${model.inputChannels}ch` : ""} · ${model.sizeLabel}` : (model.error ?? "未识别")} · {formatTime(model.mtime)}</small>
                   {mismatch && <em className="agent-mismatch">模式数不匹配：模型 {model.numModes} ≠ 仿真 {simModeCount}</em>}
                 </span>
               </button>

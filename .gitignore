@@ -19,6 +19,7 @@
 # misc
 .DS_Store
 *.pem
+*.tsbuildinfo
 
 # debug
 npm-debug.log*
@@ -37,24 +38,18 @@ next-env.d.ts
 /outputs/
 /work/
 .lp-backend-runtime.json
-# 训练好的模型权重（体积大且由用户自行放入）
+.lp-python.txt
+# 模型权重默认不跟踪（26 MB/个）；内置的 6 个权重已纳入版本库
 models/*.pth
 models/*.pt
 models/*.ckpt
+!models/3.pth
+!models/6.pth
+!models/10.pth
+!models/12.pth
+!models/25.pth
+!models/30.pth
 
-# Local data and loaded artifacts (never commit)
-/fiber-profiles/*
-!/fiber-profiles/README.md
-/models/*
-!/models/README.md
-/validation/
-/.env.python.local.json
-/outputs/
-/output/
-/results/
-/saved_results/
-/tmp/
-/uploads/
-/downloads/
-/data/
-/datasets/
+# MATLAB 依赖函数目录（由使用者自行放入，供 validation/ 使用）
+/matlab-functions/
+

@@ -29,44 +29,141 @@
     <div class="card">
       <div class="orb"></div>
       <h1>正在连接仿真后端</h1>
-      <p>请先运行 <code>后端.mjs</code> 或双击 <code>启动后端.bat</code><br>首次安装依赖可能需要 1–3 分钟，本页面会持续自动连接。</p>
+      <p>请先运行 <code>backend.mjs</code> 或双击 <code>启动后端.bat</code><br>首次安装依赖可能需要 1–3 分钟，本页面会持续自动连接。</p>
       <div class="loader"><span></span></div>
-      <p id="status">连接 http://localhost:3000 …</p>
+      <p id="status">连接 http://127.0.0.1:3000 …</p>
       <div class="error" id="error">后端尚未就绪，可能仍在安装依赖。请保持后端窗口打开，本页面会自动重试。<br><br><button id="retry">立即重试</button></div>
     </div>
   </div>
   <iframe id="app" title="少模光纤单光斑仿真器" src="about:blank"></iframe>
   <script>
-    const app = document.getElementById("app");
-    const launcher = document.getElementById("launcher");
-    const status = document.getElementById("status");
-    const error = document.getElementById("error");
-    let attempts = 0;
-    let timeoutId;
-    let connected = false;
-    function connect() {
+    // backend.mjs / scripts/start.ps1 绑定 127.0.0.1:3000，pnpm dev 默认绑定 localhost，
+    // 两者在 Windows 上受 hosts 解析顺序影响，不一定互通，所以都试一遍。
+    // 端口被占用时可改用 前端.html?port=3001 或 前端.html?url=http://127.0.0.1:3001
+    var CANDIDATES = ["http://127.0.0.1:3000", "http://localhost:3000"];
+    (function () {
+      var q = new URLSearchParams(location.search);
+      var customUrl = q.get("url");
+      var customPort = q.get("port");
+      if (customUrl) CANDIDATES = [customUrl.replace(/\/+$/, "")];
+      else if (customPort) CANDIDATES = [
+        "http://127.0.0.1:" + customPort,
+        "http://localhost:" + customPort,
+      ];
+    })();
+    var APP_URL = CANDIDATES[0];
+    var app = document.getElementById("app");
+    var launcher = document.getElementById("launcher");
+    var statusEl = document.getElementById("status");
+    var error = document.getElementById("error");
+    statusEl.textContent = "连接 " + APP_URL + " …";
+
+    var connected = false;   // 已切到界面
+    var srcSet = false;      // iframe 已指向应用地址
+    var srcSetAt = 0;
+    var attempts = 0;
+    var timer = null;
+
+    function reveal() {
       if (connected) return;
-      attempts += 1;
-      status.textContent = "正在连接后端，第 " + attempts + " 次…";
-      app.src = "http://localhost:3000/?launcher=" + Date.now();
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        if (connected) return;
-        status.textContent = "后端准备中，已等待约 " + (attempts * 3) + " 秒…";
-        error.style.display = "block";
-        setTimeout(connect, 1200);
-      }, 3000);
+      connected = true;
+      clearTimeout(timer);
+      app.classList.add("ready");
+      launcher.style.display = "none";
     }
-    window.addEventListener("message", (event) => {
-      if (event.origin === "http://localhost:3000" && event.data?.type === "lp-simulator-ready") {
-        connected = true;
-        clearTimeout(timeoutId);
-        app.classList.add("ready");
-        launcher.style.display = "none";
+
+    // 探测后端是否已能接受 HTTP 请求。
+    // 返回 "ok"（已响应）/ "slow"（TCP 通但响应超时，多半在首次编译）/ "down"（连不上）
+    function probeOne(url, timeoutMs) {
+      var controller = new AbortController();
+      var abortTimer = setTimeout(function () { controller.abort(); }, timeoutMs);
+      return fetch(url + "/", {
+        mode: "no-cors",
+        cache: "no-store",
+        signal: controller.signal,
+      }).then(function () {
+        clearTimeout(abortTimer);
+        return "ok";
+      }).catch(function (err) {
+        clearTimeout(abortTimer);
+        return (err && err.name === "AbortError") ? "slow" : "down";
+      });
+    }
+
+    // 依次试探候选地址，返回第一个可达的（并把它定为 APP_URL）
+    function probe() {
+      var i = 0;
+      function next() {
+        if (i >= CANDIDATES.length) return Promise.resolve("down");
+        var url = CANDIDATES[i++];
+        return probeOne(url, 3000).then(function (state) {
+          if (state === "down") return next();
+          APP_URL = url;
+          return state;
+        });
+      }
+      return next();
+    }
+
+    function tick() {
+      if (connected) return;
+      probe().then(function (state) {
+        if (connected) return;
+
+        if (state === "down") {
+          // 后端真的没起来：清空 iframe，避免展示浏览器自己的错误页
+          srcSet = false;
+          if (app.src !== "about:blank") app.src = "about:blank";
+          statusEl.textContent = "后端未就绪，正在重试…（第 " + (++attempts) + " 次）";
+          error.style.display = "block";
+          timer = setTimeout(tick, 2000);
+          return;
+        }
+
+        // 服务已响应（或正在编译），此时才装载界面；装好之后不再重设 src，
+        // 否则页面会被反复打断，永远等不到就绪信号。
+        error.style.display = "none";
+        statusEl.textContent = state === "slow" ? "后端正在编译，请稍候…" : "后端已响应，正在加载界面…";
+        if (!srcSet) {
+          srcSet = true;
+          srcSetAt = Date.now();
+          app.src = APP_URL + "/";
+        } else if (Date.now() - srcSetAt > 15000) {
+          // 界面早已装好却始终没收到就绪消息：直接展示，避免停在等待页
+          reveal();
+          return;
+        }
+        timer = setTimeout(tick, 1200);
+      });
+    }
+
+    app.addEventListener("load", function () {
+      if (!srcSet) return;
+      // 应用会在挂载后主动通知父窗口；收到就立刻切换。
+      // 这里只做兜底：iframe 已指向应用且加载完成时，给消息留一点时间。
+      setTimeout(function () {
+        if (connected) return;
+        if (Date.now() - srcSetAt > 15000) reveal();
+      }, 500);
+    });
+
+    window.addEventListener("message", function (event) {
+      var host = "";
+      try { host = new URL(event.origin).hostname; } catch (e) { return; }
+      // 端口可能因占用而变化，这里按主机名判定，不写死端口
+      if ((host === "127.0.0.1" || host === "localhost") && event.data && event.data.type === "lp-simulator-ready") {
+        reveal();
       }
     });
-    document.getElementById("retry").addEventListener("click", () => connect());
-    connect();
+
+    document.getElementById("retry").addEventListener("click", function () {
+      error.style.display = "none";
+      attempts = 0;
+      clearTimeout(timer);
+      tick();
+    });
+
+    tick();
   </script>
 </body>
 </html>

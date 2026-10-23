@@ -16,7 +16,7 @@ async function relay<T>(path: string, init?: RequestInit, timeoutMs?: number): P
       signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : init?.signal,
     });
   } catch (error) {
-    throw new Error(`预测服务未连接（${PREDICTION_SERVER}）：请通过 启动后端.bat 或 node 后端.mjs 启动，预测旁路服务会随后端一并启动。${error instanceof Error ? `（${error.message}）` : ""}`);
+    throw new Error(`预测服务未连接（${PREDICTION_SERVER}）：请通过 启动后端.bat 或 pnpm backend 启动，预测旁路服务会随后端一并启动。${error instanceof Error ? `（${error.message}）` : ""}`);
   }
   const payload = await response.json().catch(() => null) as { error?: string } | null;
   if (!response.ok || payload?.error) {
@@ -34,6 +34,7 @@ export async function sidecarModels() {
       mtime: number;
       numModes: number | null;
       backbone: string | null;
+      inputChannels: number | null;
       modeLabels: string[] | null;
       error: string | null;
     }>;

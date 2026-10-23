@@ -1,25 +1,15 @@
 $ErrorActionPreference = 'Stop'
 $projectDir = Split-Path -Parent $PSScriptRoot
-$bundledRoot = Join-Path $env:USERPROFILE '.cache\codex-runtimes\codex-primary-runtime\dependencies'
-$bundledNode = Join-Path $bundledRoot 'node\bin'
-$bundledPnpm = Join-Path $bundledRoot 'bin\fallback\pnpm.cmd'
 
-if (-not (Get-Command node -ErrorAction SilentlyContinue) -and (Test-Path -LiteralPath (Join-Path $bundledNode 'node.exe'))) {
-    $env:Path = $bundledNode + ';' + $env:Path
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    throw '未找到 Node.js。请安装 Node.js 22.13 或更高版本后重试：https://nodejs.org'
 }
 
 $pnpmCommand = Get-Command pnpm -ErrorAction SilentlyContinue
-if ($pnpmCommand) {
-    $pnpm = $pnpmCommand.Source
-} elseif (Test-Path -LiteralPath $bundledPnpm) {
-    $pnpm = $bundledPnpm
-} else {
-    throw '未找到 pnpm。请先安装 Node.js 22 和 pnpm，然后重新启动。'
+if (-not $pnpmCommand) {
+    throw '未找到 pnpm。请先执行 npm install -g pnpm，然后重新启动。'
 }
-
-if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-    throw '未找到 Node.js。请安装 Node.js 22.13 或更高版本。'
-}
+$pnpm = $pnpmCommand.Source
 
 Set-Location -LiteralPath $projectDir
 
